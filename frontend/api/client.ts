@@ -1,4 +1,5 @@
 const API_BASE_URL = process.env.API_BASE_URL;
+let token: string | null = null;
 
 if (!API_BASE_URL) {
     throw new Error("API Base URL is not defined");
@@ -42,6 +43,18 @@ if (!API_BASE_URL) {
 //     return csrf_token
 // }
 
+export function setToken(newToken: string | null): void {
+    token = newToken;
+}
+
+export function getToken(): string | null {
+    return token;
+}
+
+export function clearToken(): void {
+    token = null;
+}
+
 export async function request<T>(
     endpoint: string,
     options: RequestInit = {}
@@ -52,6 +65,7 @@ export async function request<T>(
     const res = await fetch(endpoint_uri, {
         headers: {
             "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
             // "X-CSRFToken": csrf_token,
             ...(options.headers || {}),
         },

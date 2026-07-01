@@ -1,3 +1,5 @@
+import { request } from "./client";
+
 /*
 
 http://209.38.89.2:8000/api/users/login/
@@ -27,3 +29,21 @@ Authorization: Token 2ef7fd8be3b02538aff093eebab72d55e8847b4c
 ...
 
 */
+
+export type ResponseLogin = {
+    "return":        string;
+};
+
+export type RequestLogin = {
+    "username":     string;
+    "password":     string;
+};
+
+export async function request_Login(
+    payload: RequestLogin
+): Promise<ResponseLogin> {
+    return request<ResponseLogin>("api/users/login", {
+        method: "POST",
+        body: JSON.stringify(payload)
+    });
+}

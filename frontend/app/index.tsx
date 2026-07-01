@@ -1,13 +1,16 @@
 import { StyleSheet, Text, View } from "react-native";
 import { useFonts } from "expo-font";
 
+import MapIcon from "@/assets/icons/map.svg";
+import SettingsIcon from "@/assets/icons/settings.svg";
+import AdminIcon from "@/assets/icons/admin.svg";
+import symbolicateStackTrace from "react-native/Libraries/Core/Devtools/symbolicateStackTrace";
+
 /*
 
 [ API SERVER ]
 SERVER: 209.38.89.2
 PORT:   8000
-
-
 
 */
 
@@ -38,14 +41,17 @@ export default function Page() {
       <View style={styles.menuFrame}>
 
         <View style={styles.menuButton}>
+          <MapIcon width={36} height={36} fill="#000352"/>
           <Text style={styles.menuTitle}>Map</Text>
         </View>
 
         <View style={styles.menuButton}>
+          <SettingsIcon width={36} height={36} fill="#000352"/>
           <Text style={styles.menuTitle}>Settings</Text>
         </View>
 
         <View style={styles.menuButton}>
+          <AdminIcon width={36} height={36} fill="#000352"/>
           <Text style={styles.menuTitle}>Admin</Text>
         </View>
 
@@ -125,7 +131,7 @@ const styles = StyleSheet.create({
   menuButton: {
     flex: 1,
     minWidth: 0,
-    height: 40,
+    height: "100%",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -136,37 +142,7 @@ const styles = StyleSheet.create({
     fontFamily: "Inter-Regular",
     color: "#ffffff",
     textAlign: "center",
+    fontWeight: "regular"
   },
 
 });
-
-
-/* Rectangle 3 */
-
-// position: absolute;
-// width: 400px;
-// height: 95px;
-// left: 10px;
-// top: 796px;
-
-// background: radial-gradient(50% 50% at 50% 50%, rgba(153, 153, 153, 0) 0%, rgba(255, 255, 255, 0.2) 100%);
-// border-radius: 200px;
-/* Map */
-
-// position: absolute;
-// width: 48px;
-// height: 15px;
-// left: 53px;
-// top: 852px;
-
-// font-family: 'Inter';
-// font-style: normal;
-// font-weight: 400;
-// font-size: 20px;
-// line-height: 24px;
-// display: flex;
-// align-items: center;
-// text-align: center;
-
-// color: #FFFFFF;
-
