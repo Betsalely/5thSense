@@ -1,5 +1,9 @@
-from rest_framework import generics
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework.permissions import AllowAny,IsAuthenticated
+from rest_framework import status,generics
+from django.shortcuts import get_object_or_404
+from .utils import find_shortest_path
 from .models import Map
 from .serializers import MapSerializer
 from .permissions import IsSuperAdminOrMapOwner
@@ -23,3 +27,36 @@ class MapDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Map.objects.all()
     serializer_class = MapSerializer
     permission_classes = [IsAuthenticated, IsSuperAdminOrMapOwner]
+
+class MapPathfindingView(APIView):
+    # Find the shortest path between two provided coordinates
+    permission_classes = [AllowAny]
+
+    def get(self, request, pk):
+        map_instance = get_object_or_404(Map, pk=pk)
+
+        try:
+            # Store start and end coordinates
+            start_x = int(request.query_params.get('start_x'))
+            start_y = int(request.query_params.get('start_y'))
+            end_x = int(request.query_params.get('end_x'))
+            end_y = int(request.query_params.get('end_y'))
+        except (TypeError, ValueError):
+            # Make sure that coordinates provided are valid integers
+            return Response({'error', 'Start and end coordinates provided are invalid'}, status=status.HTTP_400_BAD_REQUEST)
+
+        start_coordinate = [start_x, start_y]
+        end_coordinate = [end_x, end_y]
+
+        # Find the shortest path
+        result = find_shortest_path(map_instance.grid_data, start_coordinate, end_coordinate)
+
+        if isinstance(result, dict) and "error" in result:
+            return Response(result, status=status.HTTP_400_BAD_REQUEST)
+        return Response({
+            'map_id': map_instance.id,
+            'start': start_coordinate,
+            'end': end_coordinate,
+            'path': result,
+            'total_steps': len(result) - 1,
+        }, status=status.HTTP_200_OK)
