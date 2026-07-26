@@ -34,7 +34,6 @@ export default function Page() {
           <AdminIcon width={36} height={36} fill="#000352"/>
           <Text style={commonStyles.menuTitle}>Admin</Text>
         </Pressable>
-
       </View>
     </View>
   );

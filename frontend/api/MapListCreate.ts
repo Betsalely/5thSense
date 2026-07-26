@@ -44,7 +44,7 @@ export type RequestMapListCreate = {
 export async function request_MapListCreate(
     payload: RequestMapListCreate
 ): Promise<ResponseMapListCreate> {
-    return request<ResponseMapListCreate>("/api/maps", {
+    return request<ResponseMapListCreate>("/api/maps/", {
         method: "POST",
         body: JSON.stringify(payload)
     });

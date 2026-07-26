@@ -30,9 +30,15 @@ Authorization: Token 2ef7fd8be3b02538aff093eebab72d55e8847b4c
 
 */
 
-export type ResponseLogin = {
-    "token":        string;
-};
+type LoginSuccess = {
+    "token":                string;
+}
+
+type LoginFailed = {
+    "non_field_errors":     string[];
+}
+
+export type ResponseLogin = LoginSuccess | LoginFailed;
 
 export type RequestLogin = {
     "username":     string;
@@ -41,9 +47,15 @@ export type RequestLogin = {
 
 export async function request_Login(
     payload: RequestLogin
-): Promise<ResponseLogin> {
-    return request<ResponseLogin>("api/users/login", {
+): Promise<LoginSuccess> {
+    const response = await request<ResponseLogin>("api/users/login/", {
         method: "POST",
         body: JSON.stringify(payload)
     });
+
+    if ("token" in response) {
+        return response;
+    }
+
+    throw new Error(response.non_field_errors?.[0] ?? "Login failed")
 }

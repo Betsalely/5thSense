@@ -54,11 +54,6 @@ export default function Page() {
           <Text style={commonStyles.menuTitle}>Settings</Text>
         </Pressable>
 
-        <Pressable style={commonStyles.menuButton} onPress={() => router.push("/admin")}>
-          <AdminIcon width={36} height={36} fill="#000352"/>
-          <Text style={commonStyles.menuTitle}>Admin</Text>
-        </Pressable>
-
       </View>
 
     </View>
