@@ -8,12 +8,12 @@
 #define PIN_MISO 13
 #define PIN_IRQ 14
 
-uint8_t my_id = 1;
-float my_x = 0.00;
-float my_y = 0.00;
-float my_z = 1.50;
+const uint8_t BEACON_ID = 1;
+const float BEACON_X = 0.00;
+const float BEACON_Y = 0.00;
+const float BEACON_Z = 1.50;
 
-struct BeaconPacket
+struct __attribute__((packed)) BeaconPacket
 {
     uint8_t msg_type;
     uint8_t beacon_id;
@@ -27,11 +27,15 @@ struct BeaconPacket
 void setup()
 {
     Serial.begin(115200);
+    delay(1000);
+    Serial.printf("Starting Emitting Beacon #%d at (%.2f, %.2f, %.2f)\n", BEACON_ID, BEACON_X, BEACON_Y, BEACON_Z);
+
     SPI.begin(PIN_SCK, PIN_MISO, PIN_MOSI, PIN_SS);
 
     DW3000::select(PIN_SS);
     if (!DW3000::begin(PIN_IRQ, PIN_RST))
     {
+        Serial.println("DWM3000 initialization failed!");
         while (1)
             ;
     }
@@ -52,20 +56,22 @@ void loop()
         {
             uint8_t target_id = rx_buffer[1];
 
-            if (target_id == my_id || target_id == 0xFF)
+            if (target_id == BEACON_ID || target_id == 0xFF)
             {
                 uint64_t poll_rx_ts = DW3000::getRxTimestamp();
 
                 BeaconPacket response;
                 response.msg_type = 0x02;
-                response.beacon_id = my_id;
-                response.x = my_x;
-                response.y = my_y;
-                response.z = my_z;
+                response.beacon_id = BEACON_ID;
+                response.x = BEACON_X;
+                response.y = BEACON_Y;
+                response.z = BEACON_Z;
 
-                delay(2);
+                uint64_t resp_tx_ts = poll_rx_ts + DW3000::usToUwbTime(2000);
+                DW3000::setTxTimestamp(resp_tx_ts);
 
                 DW3000::sendPacket((uint8_t *)&response, sizeof(response), true);
+                Serial.printf("Responded to Anchor query with coords (%.2f, %.2f)\n", BEACON_X, BEACON_Y);
             }
         }
     }
