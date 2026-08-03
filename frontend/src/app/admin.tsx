@@ -15,7 +15,7 @@ export default function Page() {
   const [password, setPassword] = useState("");
 
   const handleLogin = async () => {
-    try{
+    try {
       const response = await request_Login({
         username,
         password
@@ -29,28 +29,28 @@ export default function Page() {
   };
 
   const router = useRouter();
-  
+
   const [fontsLoaded] = useFonts({
-    "InstrumentSans-Regular": require("../assets/fonts/InstrumentSans-VariableFont_wdth,wght.ttf"),
-    "Inter-Regular": require("../assets/fonts/Inter-VariableFont_opsz,wght.ttf")
+    "InstrumentSans-Regular": require("../../assets/fonts/InstrumentSans-VariableFont_wdth,wght.ttf"),
+    "Inter-Regular": require("../../assets/fonts/Inter-VariableFont_opsz,wght.ttf")
   });
   return (
     <View style={styles.screen}>
       <View style={styles.loginFrame}>
         <View style={styles.titleFrame}>
-          <center><AdminIcon style={styles.loginIcon} width={36} height={36} fill="white"/></center>
+          <center><AdminIcon style={styles.loginIcon} width={36} height={36} fill="white" /></center>
           <Text style={styles.titleLabel}>Landlord Page</Text>
         </View>
 
         <View style={styles.inputFrame}>
           <View style={styles.idFrame}>
             <Text style={styles.loginLabel}>Username</Text>
-            <TextInput style={styles.loginInput} placeholder="Enter Username" onChangeText={setUsername}/>
+            <TextInput style={styles.loginInput} placeholder="Enter Username" onChangeText={setUsername} />
           </View>
 
           <View style={styles.passwordFrame}>
             <Text style={styles.loginLabel}>Password</Text>
-            <TextInput style={styles.loginInput} placeholder="Enter Password" secureTextEntry={true} onChangeText={setPassword}/>
+            <TextInput style={styles.loginInput} placeholder="Enter Password" secureTextEntry={true} onChangeText={setPassword} />
           </View>
 
           <Pressable style={styles.loginButton} onPress={handleLogin}>
@@ -62,18 +62,18 @@ export default function Page() {
       <View style={commonStyles.menuFrame}>
 
         <Pressable style={commonStyles.menuButton} onPress={() => router.push("/")}>
-          <MapIcon width={36} height={36} fill="#000352"/>
+          <MapIcon width={36} height={36} fill="#000352" />
           <Text style={commonStyles.menuTitle}>Map</Text>
         </Pressable>
 
         <Pressable style={commonStyles.menuButton} onPress={() => router.push("/settings")}>
-          <SettingsIcon width={36} height={36} fill="#000352"/>
+          <SettingsIcon width={36} height={36} fill="#000352" />
           <Text style={commonStyles.menuTitle}>Settings</Text>
         </Pressable>
 
       </View>
     </View>
-    );
+  );
 }
 
 const styles = StyleSheet.create({

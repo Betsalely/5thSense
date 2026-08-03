@@ -21,12 +21,12 @@ export default function Page() {
   const router = useRouter();
 
   const [fontsLoaded] = useFonts({
-    "InstrumentSans-Regular": require("../assets/fonts/InstrumentSans-VariableFont_wdth,wght.ttf"),
-    "Inter-Regular": require("../assets/fonts/Inter-VariableFont_opsz,wght.ttf")
+    "InstrumentSans-Regular": require("../../assets/fonts/InstrumentSans-VariableFont_wdth,wght.ttf"),
+    "Inter-Regular": require("../../assets/fonts/Inter-VariableFont_opsz,wght.ttf")
   });
 
   const onDestChanged = async ({ nativeEvent }: any) => {
-    try{
+    try {
       switch (nativeEvent.event) {
         case 'edit':
           console.log('Edit selected');
@@ -51,7 +51,7 @@ export default function Page() {
 
         </View>
       </View>
-      
+
       <View style={styles.centerFrame}>
 
       </View>
@@ -82,12 +82,12 @@ export default function Page() {
       <View style={commonStyles.menuFrame}>
 
         <Pressable style={commonStyles.menuButton} onPress={() => router.push("/")}>
-          <MapIcon width={36} height={36} fill="#000352"/>
+          <MapIcon width={36} height={36} fill="#000352" />
           <Text style={commonStyles.menuTitle}>Map</Text>
         </Pressable>
 
         <Pressable style={commonStyles.menuButton} onPress={() => router.push("/settings")}>
-          <SettingsIcon width={36} height={36} fill="#000352"/>
+          <SettingsIcon width={36} height={36} fill="#000352" />
           <Text style={commonStyles.menuTitle}>Settings</Text>
         </Pressable>
 
