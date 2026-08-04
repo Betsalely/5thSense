@@ -1,7 +1,7 @@
 import { TextInput, Pressable, StyleSheet, Text, View } from "react-native";
 import { useFonts } from "expo-font";
 import { useRouter } from "expo-router";
-import React, { useState } from "react"
+import React, { useState } from "react";
 
 import MapIcon from "@/assets/icons/map.svg";
 import SettingsIcon from "@/assets/icons/settings.svg";
@@ -34,11 +34,14 @@ export default function Page() {
     "InstrumentSans-Regular": require("../../assets/fonts/InstrumentSans-VariableFont_wdth,wght.ttf"),
     "Inter-Regular": require("../../assets/fonts/Inter-VariableFont_opsz,wght.ttf")
   });
+
   return (
     <View style={styles.screen}>
       <View style={styles.loginFrame}>
         <View style={styles.titleFrame}>
-          <center><AdminIcon style={styles.loginIcon} width={36} height={36} fill="white" /></center>
+          <View style={styles.iconWrapper}>
+            <AdminIcon style={styles.loginIcon} width={36} height={36} fill="white" />
+          </View>
           <Text style={styles.titleLabel}>Landlord Page</Text>
         </View>
 
@@ -106,6 +109,9 @@ const styles = StyleSheet.create({
   titleFrame: {
     backgroundColor: "#000352",
     width: "100%",
+  },
+  iconWrapper: {
+    alignItems: "center",
   },
   loginIcon: {
     padding: 16,
