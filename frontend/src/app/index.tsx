@@ -1,5 +1,6 @@
-import { View, Text } from "react-native";
-import Svg, { Path } from "react-native-svg";
+import { useEffect, useRef } from "react";
+import { View, Text, Animated, Easing } from "react-native";
+import Svg, { Path, Defs, LinearGradient, Stop } from "react-native-svg";
 import { useFonts } from "expo-font";
 
 import { commonStyles } from "@/styles/commonStyles";
@@ -8,6 +9,27 @@ import { indexStyles } from "@/styles/indexStyles";
 import NavigationBar from "@/components/NavigationBar";
 
 export default function MapPage() {
+  const rotation = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const randomAngle = Math.random() * 180 - 90; // between -90 and 90
+      Animated.timing(rotation, {
+        toValue: randomAngle,
+        duration: 800,
+        easing: Easing.inOut(Easing.ease),
+        useNativeDriver: true,
+      }).start();
+    }, 2000);
+
+    return () => clearInterval(interval);
+  }, [rotation]);
+
+  const rotateInterpolate = rotation.interpolate({
+    inputRange: [-90, 90],
+    outputRange: ["-90deg", "90deg"],
+  });
+
   return (
     <View style={commonStyles.screen}>
       <View style={indexStyles.topFrame}>
@@ -16,8 +38,9 @@ export default function MapPage() {
       </View>
 
       <View style={[indexStyles.centerFrame, { justifyContent: "center", alignItems: "center" }]}>
-        <View
+        <Animated.View
           style={{
+            transform: [{ rotate: rotateInterpolate }],
             shadowColor: "#000",
             shadowOffset: { width: 0, height: 4 },
             shadowOpacity: 0.35,
@@ -25,17 +48,22 @@ export default function MapPage() {
             elevation: 8,
           }}
         >
-          <Svg width={70} height={80} viewBox="0 0 70 80">
-            {/* Kite-shaped navigation cursor: tip at top, concave notch at back */}
+          <Svg width={100} height={114} viewBox="0 0 70 80">
+            <Defs>
+              <LinearGradient id="cursorGradient" x1="0" y1="0" x2="0" y2="1">
+                <Stop offset="0" stopColor="#FFFFFF" stopOpacity={1} />
+                <Stop offset="1" stopColor="#C7C7C7" stopOpacity={1} />
+              </LinearGradient>
+            </Defs>
             <Path
               d="M35 0 L70 68 L35 54 L0 68 Z"
-              fill="#F2F2F2"
+              fill="url(#cursorGradient)"
               stroke="#D8D8D8"
               strokeWidth={1}
               strokeLinejoin="round"
             />
           </Svg>
-        </View>
+        </Animated.View>
       </View>
 
       <View style={indexStyles.bottomFrame}>
