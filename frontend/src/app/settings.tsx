@@ -43,7 +43,7 @@ export default function SettingsPage() {
                         break;
                     }
 
-                    await sleep(500);
+                    await sleep(50);
                 }
             } catch (error) {
                 console.error("Vibration failed:", error);
