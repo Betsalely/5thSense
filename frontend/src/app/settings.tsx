@@ -1,4 +1,6 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
+import { useCallback, useRef } from "react";
+import { useFocusEffect } from "expo-router";
 
 // iPhone Haptics API
 import { vibrate } from '@/vibration/haptics';
@@ -10,26 +12,55 @@ import { settingsStyles } from '@/styles/settingsStyles';
 // UI Components
 import NavigationBar from '@/components/NavigationBar';
 
+type VibrationStrength = "light" | "medium" | "heavy" | "soft" | "rigid" | "success" | "warning" | "error";
+
 export default function SettingsPage() {
-    let isVibrationStopped = true;
+    const vibrationRunId = useRef(0);
 
-    const loopVibration = async (strength: string) => {
-        isVibrationStopped = true;
-        // Loop selected vibration strength untill next button is pressed
-        
-        isVibrationStopped = false;
-        while (true) {
-            if (isVibrationStopped) {
-                break;
+    // Sleep for a specified number of milliseconds
+    const sleep = (ms: number) =>
+        new Promise<void>((resolve) => {
+            setTimeout(resolve, ms);
+    });
+
+    // Stop the vibration loop
+    const stopVibration = useCallback(() => {
+        vibrationRunId.current += 1;
+    }, []);
+
+    // Loop vibration until the user stops it
+    const loopVibration = useCallback(
+        async (strength: VibrationStrength) => {
+            stopVibration();
+
+            const currentRunId = vibrationRunId.current;
+
+            try {
+                while (vibrationRunId.current === currentRunId) {
+                    await vibrate(strength);
+
+                    if (vibrationRunId.current !== currentRunId) {
+                        break;
+                    }
+
+                    await sleep(10);
+                }
+            } catch (error) {
+                console.error("Vibration failed:", error);
+                stopVibration();
             }
-            await vibrate(strength as any);
-            await new Promise((resolve) => setTimeout(resolve, 10));
-        }
-    };
+        },
+        [stopVibration],
+    );
 
-    const stopVibration = () => {
-        isVibrationStopped = true;
-    };
+    useFocusEffect(
+        useCallback(() => {
+        // Execute when lose focus or remove the component from the screen.
+            return () => {
+                stopVibration();
+            };
+        }, [stopVibration]),
+    );
 
     return (
         <View style={commonStyles.screen}>
