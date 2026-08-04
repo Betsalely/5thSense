@@ -1,7 +1,5 @@
 #include <SPI.h>
 // #include <DW3000.h>
-#include <WiFi.h>
-#include <SocketIoClient.h>
 #include <Wire.h>
 #include <Adafruit_MPU6050.h>
 #include <Adafruit_Sensor.h>
@@ -19,12 +17,6 @@
 #define MAX_BEACONS 8
 #define SPEED_OF_LIGHT 299792458.0
 
-const char *ssid = "MrPickles 3";
-const char *password = "MrsMoneyPenny";
-const char *pi_ip = "192.168.68.69";
-const int pi_port = 3000;
-
-SocketIoClient webSocket;
 Adafruit_MPU6050 mpu;
 
 float prev_x = 0;
@@ -143,16 +135,12 @@ bool calculateAnchorPosition(float &out_x, float &out_y)
     return true;
 }
 
-void onConnect(const char *payload, size_t length)
-{
-    Serial.println("Connected to Raspberry Pi Socket.IO Server!");
-}
-
 void setup()
 {
     Serial.begin(115200);
     delay(1000);
-    Serial.println("Starting Mobile Anchor Beacon with IMU...");
+
+    Serial.println("Starting Mobile Anchor Beacon with IMU (USB Serial)...");
 
     Wire.begin(I2C_SDA, I2C_SCL);
     if (!mpu.begin())
@@ -166,19 +154,6 @@ void setup()
         mpu.setGyroRange(MPU6050_RANGE_500_DEG);
         mpu.setFilterBandwidth(MPU6050_BAND_21_HZ);
     }
-
-    WiFi.begin(ssid, password);
-    Serial.print("Connecting to WiFi...");
-    while (WiFi.status() != WL_CONNECTED)
-    {
-        delay(500);
-        Serial.print(".");
-    }
-    Serial.println("\nWiFi Connected! IP Address: ");
-    Serial.println(WiFi.localIP());
-
-    webSocket.on("connect", onConnect);
-    webSocket.begin(pi_ip, pi_port, "/socket.io/?EIO=4");
 
     // SPI.begin(PIN_SCK, PIN_MISO, PIN_MOSI, PIN_SS);
     // DW3000::select(PIN_SS);
@@ -194,8 +169,6 @@ void setup()
 
 void loop()
 {
-    webSocket.loop();
-
     generateFakeBeaconData();
 
     // for (uint8_t id = 1; id <= 4; id++)
@@ -283,7 +256,7 @@ void loop()
                          ",\"ay\":" + String(a.acceleration.y, 2) +
                          ",\"az\":" + String(a.acceleration.z, 2) + "}";
 
-        webSocket.emit("esp32_update", payload.c_str());
+        Serial.println(payload);
     }
 
     delay(100);
