@@ -13,7 +13,7 @@ export default function MapPage() {
 
   useEffect(() => {
     const interval = setInterval(() => {
-      const randomAngle = Math.random() * 180 - 90; // between -90 and 90
+      const randomAngle = Math.random() * 180 - 90;
       Animated.timing(rotation, {
         toValue: randomAngle,
         duration: 800,
@@ -41,14 +41,16 @@ export default function MapPage() {
         <Animated.View
           style={{
             transform: [{ rotate: rotateInterpolate }],
+            transformOrigin: "center center",
+            marginTop: -80,
             shadowColor: "#000",
-            shadowOffset: { width: 0, height: 4 },
-            shadowOpacity: 0.35,
+            shadowOffset: { width: 0, height: 6 },
+            shadowOpacity: 0.55,
             shadowRadius: 6,
             elevation: 8,
           }}
         >
-          <Svg width={100} height={114} viewBox="0 0 70 80">
+          <Svg width={150} height={171} viewBox="0 0 70 80">
             <Defs>
               <LinearGradient id="cursorGradient" x1="0" y1="0" x2="0" y2="1">
                 <Stop offset="0" stopColor="#FFFFFF" stopOpacity={1} />
