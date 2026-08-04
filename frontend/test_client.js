@@ -5,17 +5,11 @@ const socket = io(`http://${PI_IP}:3000`);
 
 socket.on("connect", () => {
     console.log(`Connected to Raspberry Pi! Client ID: ${socket.id}`);
-
-    socket.emit("request_data", {});
-
-    setInterval(() => {
-        console.log("Pinging Pi for ESP32 data...");
-        socket.emit("request_data", {});
-    }, 2000);
+    console.log("Waiting for real ESP32 data...");
 });
 
 socket.on("esp32_data", (data) => {
-    console.log("--- Received ESP32 Data ---");
+    console.log("--- Real ESP32 Data Received ---");
     console.log(JSON.stringify(data, null, 2));
 });
 
