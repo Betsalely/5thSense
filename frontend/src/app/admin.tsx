@@ -7,7 +7,7 @@ import MapIcon from "@/assets/icons/map.svg";
 import SettingsIcon from "@/assets/icons/settings.svg";
 import AdminIcon from "@/assets/icons/admin.svg";
 
-import { commonStyles } from "@/styles/common";
+import { commonStyles } from "@/styles/commonStyles";
 import { request_Login } from "../api/login";
 
 export default function Page() {
