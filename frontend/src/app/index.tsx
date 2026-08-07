@@ -2,6 +2,7 @@ import { useEffect, useRef, useCallback } from "react";
 import { View, Text, Animated, Easing } from "react-native";
 import Svg, { Path, Defs, LinearGradient, Stop } from "react-native-svg";
 import { useFonts } from "expo-font";
+import { Magnetometer } from 'expo-sensors';
 
 import { commonStyles } from "@/styles/commonStyles";
 import { indexStyles } from "@/styles/indexStyles";
@@ -18,32 +19,7 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 export default function MapPage() {
   const rotation = useRef(new Animated.Value(0)).current;
   const vibrationRunId = useRef(0);
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const randomAngle = Math.random() * 40 - 20;
-
-      if (randomAngle >= -10 && randomAngle <= 10) {
-        loopVibration('error')
-      } else {
-        stopVibration()
-      };
-
-      Animated.timing(rotation, {
-        toValue: randomAngle,
-        duration: 800,
-        easing: Easing.inOut(Easing.ease),
-        useNativeDriver: true,
-      }).start();
-    }, 2000);
-
-    return () => clearInterval(interval);
-  }, [rotation]);
-
-  const rotateInterpolate = rotation.interpolate({
-    inputRange: [-90, 90],
-    outputRange: ["-90deg", "90deg"],
-  });
+  const isNorthRef = useRef(false);
 
   const stopVibration = useCallback(() => {
     vibrationRunId.current += 1;
@@ -73,6 +49,43 @@ export default function MapPage() {
     },
     [stopVibration],
   );
+
+  useEffect(() => {
+    Magnetometer.setUpdateInterval(100);
+
+    const subscription = Magnetometer.addListener((data) => {
+      let { x, y } = data;
+      let heading = Math.atan2(y, x) * (180 / Math.PI);
+      heading = heading >= 0 ? heading : heading + 360;
+
+      const isNorth = heading <= 20 || heading >= 340;
+
+      if (isNorth && !isNorthRef.current) {
+        isNorthRef.current = true;
+        loopVibration('error');
+      } else if (!isNorth && isNorthRef.current) {
+        isNorthRef.current = false;
+        stopVibration();
+      }
+
+      Animated.timing(rotation, {
+        toValue: -heading,
+        duration: 100,
+        easing: Easing.linear,
+        useNativeDriver: true,
+      }).start();
+    });
+
+    return () => {
+      subscription.remove();
+      stopVibration();
+    };
+  }, [rotation, loopVibration, stopVibration]);
+
+  const rotateInterpolate = rotation.interpolate({
+    inputRange: [-360, 0, 360],
+    outputRange: ["-360deg", "0deg", "360deg"],
+  });
 
   return (
     <View style={commonStyles.screen}>
