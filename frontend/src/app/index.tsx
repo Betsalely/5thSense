@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useCallback } from "react";
 import { View, Text, Animated, Easing } from "react-native";
 import Svg, { Path, Defs, LinearGradient, Stop } from "react-native-svg";
 import { useFonts } from "expo-font";
@@ -6,14 +6,29 @@ import { useFonts } from "expo-font";
 import { commonStyles } from "@/styles/commonStyles";
 import { indexStyles } from "@/styles/indexStyles";
 
-import NavigationBar from "@/components/NavigationBar";
+import { useFocusEffect } from "expo-router";
+import { vibrate, type VibrationStrength } from '@/vibration/haptics';
+import { settingsStyles } from '@/styles/settingsStyles';
+
+// UI Components
+import NavigationBar from '@/components/NavigationBar';
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export default function MapPage() {
   const rotation = useRef(new Animated.Value(0)).current;
+  const vibrationRunId = useRef(0);
 
   useEffect(() => {
     const interval = setInterval(() => {
-      const randomAngle = Math.random() * 180 - 90;
+      const randomAngle = Math.random() * 40 - 20;
+
+      if (randomAngle >= -10 && randomAngle <= 10) {
+        loopVibration('error')
+      } else {
+        stopVibration()
+      };
+
       Animated.timing(rotation, {
         toValue: randomAngle,
         duration: 800,
@@ -29,6 +44,35 @@ export default function MapPage() {
     inputRange: [-90, 90],
     outputRange: ["-90deg", "90deg"],
   });
+
+  const stopVibration = useCallback(() => {
+    vibrationRunId.current += 1;
+  }, []);
+
+  // Loop vibration until the user stops it
+  const loopVibration = useCallback(
+    async (strength: VibrationStrength) => {
+      stopVibration();
+
+      const currentRunId = vibrationRunId.current;
+
+      try {
+        while (vibrationRunId.current === currentRunId) {
+          await vibrate(strength);
+
+          if (vibrationRunId.current !== currentRunId) {
+            break;
+          }
+
+          await sleep(50);
+        }
+      } catch (error) {
+        console.error("Vibration failed:", error);
+        stopVibration();
+      }
+    },
+    [stopVibration],
+  );
 
   return (
     <View style={commonStyles.screen}>
