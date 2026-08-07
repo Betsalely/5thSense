@@ -4,8 +4,8 @@ from rest_framework.permissions import AllowAny,IsAuthenticated
 from rest_framework import status,generics
 from django.shortcuts import get_object_or_404
 from .utils import find_shortest_path
-from .models import Map
-from .serializers import MapSerializer
+from .models import Map, Destinations
+from .serializers import MapSerializer, DestinationsSerializer
 from .permissions import IsSuperAdminOrMapOwner
 
 class MapListCreateView(generics.ListCreateAPIView):
@@ -60,3 +60,17 @@ class MapPathfindingView(APIView):
             'path': result,
             'total_steps': len(result) - 1,
         }, status=status.HTTP_200_OK)
+
+class DestinationsListCreateView(generics.ListCreateAPIView):
+    # List destinations
+    serializer_class = DestinationsSerializer
+    permission_classes = [IsAuthenticated, IsSuperAdminOrMapOwner]
+
+    def get_queryset(self):
+        user = self.request.user
+        if user.user_role == 'superadmin':
+            return DestinationsSerializer.objects.all()
+        return Destinations.objects.filter(created_by=user)
+
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user)
