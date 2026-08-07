@@ -1,167 +1,138 @@
-import { Pressable, StyleSheet, Text, View } from "react-native";
-import { MenuView } from '@react-native-menu/menu';
+import { useEffect, useRef, useCallback } from "react";
+import { View, Text, Animated, Easing } from "react-native";
+import Svg, { Path, Defs, LinearGradient, Stop } from "react-native-svg";
 import { useFonts } from "expo-font";
-import { useRouter } from "expo-router";
+import { Magnetometer } from 'expo-sensors';
 
-import MapIcon from "@/assets/icons/map.svg";
-import SettingsIcon from "@/assets/icons/settings.svg";
-import AdminIcon from "@/assets/icons/admin.svg";
+import { commonStyles } from "@/styles/commonStyles";
+import { indexStyles } from "@/styles/indexStyles";
 
-import { commonStyles } from "@/styles/common";
+import { useFocusEffect } from "expo-router";
+import { vibrate, type VibrationStrength } from '@/vibration/haptics';
+import { settingsStyles } from '@/styles/settingsStyles';
 
-/*
+// UI Components
+import NavigationBar from '@/components/NavigationBar';
 
-[ API SERVER ]
-SERVER: 209.38.89.2
-PORT:   8000
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-*/
+export default function MapPage() {
+  const rotation = useRef(new Animated.Value(0)).current;
+  const vibrationRunId = useRef(0);
+  const isNorthRef = useRef(false);
 
-export default function Page() {
-  const router = useRouter();
+  const stopVibration = useCallback(() => {
+    vibrationRunId.current += 1;
+  }, []);
 
-  const [fontsLoaded] = useFonts({
-    "InstrumentSans-Regular": require("../../assets/fonts/InstrumentSans-VariableFont_wdth,wght.ttf"),
-    "Inter-Regular": require("../../assets/fonts/Inter-VariableFont_opsz,wght.ttf")
-  });
+  // Loop vibration until the user stops it
+  const loopVibration = useCallback(
+    async (strength: VibrationStrength) => {
+      stopVibration();
 
-  const onDestChanged = async ({ nativeEvent }: any) => {
-    try {
-      switch (nativeEvent.event) {
-        case 'edit':
-          console.log('Edit selected');
-          break;
-        case 'share':
-          console.log('Share selected');
-          break;
-        case 'delete':
-          console.log('Delete selected');
-          break;
+      const currentRunId = vibrationRunId.current;
+
+      try {
+        while (vibrationRunId.current === currentRunId) {
+          await vibrate(strength);
+
+          if (vibrationRunId.current !== currentRunId) {
+            break;
+          }
+
+          await sleep(50);
+        }
+      } catch (error) {
+        console.error("Vibration failed:", error);
+        stopVibration();
+      }
+    },
+    [stopVibration],
+  );
+
+  useEffect(() => {
+    Magnetometer.setUpdateInterval(100);
+
+    const subscription = Magnetometer.addListener((data) => {
+      let { x, y } = data;
+      let heading = Math.atan2(y, x) * (180 / Math.PI);
+      heading = heading >= 0 ? heading : heading + 360;
+
+      const isNorth = heading <= 20 || heading >= 340;
+
+      if (isNorth && !isNorthRef.current) {
+        isNorthRef.current = true;
+        loopVibration('error');
+      } else if (!isNorth && isNorthRef.current) {
+        isNorthRef.current = false;
+        stopVibration();
       }
 
-    } catch (error) {
-      console.log(error);
-    }
-  };
+      Animated.timing(rotation, {
+        toValue: -heading,
+        duration: 100,
+        easing: Easing.linear,
+        useNativeDriver: true,
+      }).start();
+    });
+
+    return () => {
+      subscription.remove();
+      stopVibration();
+    };
+  }, [rotation, loopVibration, stopVibration]);
+
+  const rotateInterpolate = rotation.interpolate({
+    inputRange: [-360, 0, 360],
+    outputRange: ["-360deg", "0deg", "360deg"],
+  });
 
   return (
-    <View style={styles.screen}>
-      <View style={styles.topFrame}>
-        <View style={styles.map}>
-
+    <View style={commonStyles.screen}>
+      <View style={indexStyles.topFrame}>
+        <View style={[indexStyles.map, { backgroundColor: "transparent" }]}>
         </View>
       </View>
 
-      <View style={styles.centerFrame}>
-
+      <View style={[indexStyles.centerFrame, { justifyContent: "center", alignItems: "center" }]}>
+        <Animated.View
+          style={{
+            transform: [{ rotate: rotateInterpolate }],
+            transformOrigin: "center center",
+            marginTop: -80,
+            shadowColor: "#000",
+            shadowOffset: { width: 0, height: 6 },
+            shadowOpacity: 0.55,
+            shadowRadius: 6,
+            elevation: 8,
+          }}
+        >
+          <Svg width={150} height={171} viewBox="0 0 70 80">
+            <Defs>
+              <LinearGradient id="cursorGradient" x1="0" y1="0" x2="0" y2="1">
+                <Stop offset="0" stopColor="#FFFFFF" stopOpacity={1} />
+                <Stop offset="1" stopColor="#C7C7C7" stopOpacity={1} />
+              </LinearGradient>
+            </Defs>
+            <Path
+              d="M35 0 L70 68 L35 54 L0 68 Z"
+              fill="url(#cursorGradient)"
+              stroke="#D8D8D8"
+              strokeWidth={1}
+              strokeLinejoin="round"
+            />
+          </Svg>
+        </Animated.View>
       </View>
 
-      <View style={styles.bottomFrame}>
-        <View style={styles.distanceFrame}>
-          <Text style={styles.distanceTitle}>50 m</Text>
-          <Text style={styles.distanceSubtitle}>turn left</Text>
+      <View style={indexStyles.bottomFrame}>
+        <View style={indexStyles.distanceFrame}>
+          <Text style={indexStyles.distanceTitle}>50 m</Text>
+          <Text style={indexStyles.distanceSubTitle}>turn left</Text>
         </View>
-
-        <View style={styles.destFrame}>
-          <MenuView
-            actions={[
-              { id: 'edit', title: 'Edit' },
-              { id: 'share', title: 'Share' },
-              { id: 'delete', title: 'Delete' },
-            ]}
-            onPressAction={onDestChanged}
-            shouldOpenOnLongPress={false}
-          >
-            <View style={styles.destBtn}>
-              <Text style={styles.destTitle}>Test Destination 1</Text>
-            </View>
-          </MenuView>
-        </View>
       </View>
 
-      <View style={commonStyles.menuFrame}>
-
-        <Pressable style={commonStyles.menuButton} onPress={() => router.push("/")}>
-          <MapIcon width={36} height={36} fill="#000352" />
-          <Text style={commonStyles.menuTitle}>Map</Text>
-        </Pressable>
-
-        <Pressable style={commonStyles.menuButton} onPress={() => router.push("/settings")}>
-          <SettingsIcon width={36} height={36} fill="#000352" />
-          <Text style={commonStyles.menuTitle}>Settings</Text>
-        </Pressable>
-
-      </View>
-
+      <NavigationBar />
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: "#353535"
-  },
-
-  topFrame: {
-    backgroundColor: "transparent",
-    padding: 10,
-    minHeight: "30%",
-  },
-  map: {
-    backgroundColor: "#D9D9D9",
-    borderRadius: 25,
-    minHeight: 228,
-    width: "100%"
-  },
-
-  centerFrame: {
-    backgroundColor: "transparent",
-    padding: 20,
-    minHeight: "40%",
-  },
-
-  bottomFrame: {
-    display: "flex",
-    backgroundColor: "transparent",
-    flexDirection: "row"
-  },
-  distanceFrame: {
-    backgroundColor: "transparent",
-    padding: 20,
-    textAlign: "left",
-    flex: 0.5,
-  },
-  distanceTitle: {
-    textAlign: "left",
-    fontSize: 32,
-    fontWeight: "bold",
-    fontFamily: "InstrumentSans-Regular",
-    color: "#ffffff",
-  },
-  distanceSubtitle: {
-    textAlign: "left",
-    fontSize: 24,
-    fontFamily: "InstrumentSans-Regular",
-    color: "#ffffff",
-  },
-  destFrame: {
-    backgroundColor: "transparent",
-    padding: 20,
-    textAlign: "right",
-    flex: 1,
-  },
-  destTitle: {
-    textAlign: "right",
-    fontSize: 20,
-    fontWeight: "bold",
-    fontFamily: "InstrumentSans-Regular",
-    color: "#ffffff",
-  },
-  destBtn: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: '#2563eb',
-    borderRadius: 8,
-  }
-});

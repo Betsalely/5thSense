@@ -1,44 +1,104 @@
-import { Pressable, StyleSheet, Text, View } from "react-native";
-import { useFonts } from "expo-font";
-import { useRouter } from "expo-router";
+import { Pressable, Text, View } from 'react-native';
+import { useCallback, useRef } from "react";
+import { useFocusEffect } from "expo-router";
 
-import MapIcon from "@/assets/icons/map.svg";
-import SettingsIcon from "@/assets/icons/settings.svg";
-import AdminIcon from "@/assets/icons/admin.svg";
+// iPhone Haptics API
+import { vibrate } from '@/vibration/haptics';
 
-import { commonStyles } from "@/styles/common";
+// Styles
+import { commonStyles } from '@/styles/commonStyles';
+import { settingsStyles } from '@/styles/settingsStyles';
 
-export default function Page() {
-  const router = useRouter();
+// UI Components
+import NavigationBar from '@/components/NavigationBar';
 
-  const [fontsLoaded] = useFonts({
-    "InstrumentSans-Regular": require("../../assets/fonts/InstrumentSans-VariableFont_wdth,wght.ttf"),
-    "Inter-Regular": require("../../assets/fonts/Inter-VariableFont_opsz,wght.ttf")
-  });
+type VibrationStrength = "light" | "medium" | "heavy" | "soft" | "rigid" | "success" | "warning" | "error";
 
-  return (
-    <View style={styles.screen}>
-      <View style={commonStyles.menuFrame}>
-        <Pressable style={commonStyles.menuButton} onPress={() => router.push("/")}>
-          <MapIcon width={36} height={36} fill="#000352" />
-          <Text style={commonStyles.menuTitle}>Map</Text>
-        </Pressable>
+export default function SettingsPage() {
+    const vibrationRunId = useRef(0);
 
-        <Pressable style={commonStyles.menuButton} onPress={() => router.push("/admin")}>
-          <AdminIcon width={36} height={36} fill="#000352" />
-          <Text style={commonStyles.menuTitle}>Admin</Text>
-        </Pressable>
-      </View>
-    </View>
-  );
+    // Sleep for a specified number of milliseconds
+    const sleep = (ms: number) =>
+        new Promise<void>((resolve) => {
+            setTimeout(resolve, ms);
+    });
+
+    // Stop the vibration loop
+    const stopVibration = useCallback(() => {
+        vibrationRunId.current += 1;
+    }, []);
+
+    // Loop vibration until the user stops it
+    const loopVibration = useCallback(
+        async (strength: VibrationStrength) => {
+            stopVibration();
+
+            const currentRunId = vibrationRunId.current;
+
+            try {
+                while (vibrationRunId.current === currentRunId) {
+                    await vibrate(strength);
+
+                    if (vibrationRunId.current !== currentRunId) {
+                        break;
+                    }
+
+                    await sleep(50);
+                }
+            } catch (error) {
+                console.error("Vibration failed:", error);
+                stopVibration();
+            }
+        },
+        [stopVibration],
+    );
+
+    useFocusEffect(
+        useCallback(() => {
+        // Execute when lose focus or remove the component from the screen.
+            return () => {
+                stopVibration();
+            };
+        }, [stopVibration]),
+    );
+
+    return (
+        <View style={commonStyles.screen}>
+
+            <View style={settingsStyles.sectionFrame}>
+                <Text style={settingsStyles.sectionTitle}>Haptics Test</Text>
+
+                <Pressable style={settingsStyles.blueButton} onPress={() => loopVibration('light')}>
+                    <Text style={settingsStyles.sectionTitle}>Vibrate: Light</Text>
+                </Pressable>
+                <Pressable style={settingsStyles.blueButton} onPress={() => loopVibration('medium')}>
+                    <Text style={settingsStyles.sectionTitle}>Vibrate: Medium</Text>
+                </Pressable>
+                <Pressable style={settingsStyles.blueButton} onPress={() => loopVibration('heavy')}>
+                    <Text style={settingsStyles.sectionTitle}>Vibrate: Heavy</Text>
+                </Pressable>
+                <Pressable style={settingsStyles.blueButton} onPress={() => loopVibration('soft')}>
+                    <Text style={settingsStyles.sectionTitle}>Vibrate: Soft</Text>
+                </Pressable>
+                <Pressable style={settingsStyles.blueButton} onPress={() => loopVibration('rigid')}>
+                    <Text style={settingsStyles.sectionTitle}>Vibrate: Rigid</Text>
+                </Pressable>
+                <Pressable style={settingsStyles.greenButton} onPress={() => loopVibration('success')}>
+                    <Text style={settingsStyles.sectionTitle}>Vibrate: Success</Text>
+                </Pressable>
+                <Pressable style={settingsStyles.yellowButton} onPress={() => loopVibration('warning')}>
+                    <Text style={settingsStyles.sectionTitle}>Vibrate: Warning</Text>
+                </Pressable>
+                <Pressable style={settingsStyles.redButton} onPress={() => loopVibration('error')}>
+                    <Text style={settingsStyles.sectionTitle}>Vibrate: Error</Text>
+                </Pressable>
+                <Pressable style={settingsStyles.redButton} onPress={() => stopVibration()}>
+                    <Text style={settingsStyles.sectionTitle}>Stop Vibration</Text>
+                </Pressable>
+            </View>
+
+            {/* NavigationBar UI component: /components/NavigationBar.tsx */}
+            <NavigationBar />
+        </View>
+    );
 }
-
-const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: "#353535"
-  },
-  loginFrame: {
-    backgroundColor: ""
-  },
-});
