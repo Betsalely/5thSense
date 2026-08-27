@@ -19,378 +19,386 @@ import NavigationBar from '@/components/NavigationBar';
 import { request_MapsIdPath } from '@/api/api_maps_id_path';
 import { router, useLocalSearchParams, Redirect } from "expo-router";
 
-const sleep = (ms: number) => new Promise(() => { });
+const waitMs = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-const GRID_WIDTH = 8;
-const GRID_HEIGHT = 8;
-const ARRIVAL_THRESHOLD = 0.5;
-const HEADING_CONE_DEGREES = 15;
-const MINIMAP_SIZE = 150;
+const grid_W = 8;
+const grid_H = 8;
+const arrvlThresh = 0.5;
+const heading_ConeDeg = 15;
+const miniMap_sz = 150;
 
-const START = { x: 0, y: 0 };
-const END = { x: 7, y: 7 };
+const startPt = { x: 0, y: 0 };
+const end_PT = { x: 7, y: 7 };
 
-const JOYSTICK_BASE_SIZE = 132;
-const JOYSTICK_KNOB_SIZE = 56;
-const JOYSTICK_MAX_RADIUS = (JOYSTICK_BASE_SIZE - JOYSTICK_KNOB_SIZE) / 2;
-const MOVEMENT_SPEED_CELLS_PER_SEC = 2.2;
-const MOVEMENT_TICK_MS = 50;
+const joyBaseSz = 132;
+const joyKnob_sz = 56;
+const joyMaxRadius = (joyBaseSz - joyKnob_sz) / 2;
+const moveSpeedCells = 2.2;
+const moveTick_ms = 50;
 
-const JOYSTICK_VISIBLE = true;
+const isJoyVisible = true;
+const headingSmoothAlpha = 0.18;
+const grid_PanPad = 8;
 
-const HEADING_SMOOTHING_ALPHA = 0.18;
+const Anim_G = Animated.createAnimatedComponent(G);
+const AnimCircle = Animated.createAnimatedComponent(Circle);
 
-const GRID_PAN_PADDING = 8;
-
-const AnimatedG = Animated.createAnimatedComponent(G);
-const AnimatedCircle = Animated.createAnimatedComponent(Circle);
-
-const normalizeAngle = (deg: number) => {
-  const wrapped = deg % 360;
-  return wrapped < 0 ? wrapped + 360 : wrapped;
+const normAngle = (degVal: number) => {
+  const wrp = degVal % 360;
+  return wrp < 0 ? wrp + 360 : wrp;
 };
 
-const shortestAngleDelta = (from: number, to: number) => {
-  const diff = normalizeAngle(to - from);
-  return diff > 180 ? diff - 360 : diff;
+const shortAngDelta = (fromAng: number, toAng: number) => {
+  const dff = normAngle(toAng - fromAng);
+  return dff > 180 ? dff - 360 : dff;
 };
 
-const angularDistance = (a: number, b: number) => Math.abs(shortestAngleDelta(a, b));
+const angDistance = (angA: number, angB: number) => Math.abs(shortAngDelta(angA, angB));
 
 export default function MapPage() {
   const { mapId, destinationId } = useLocalSearchParams();
 
-  const rotation = useRef(new Animated.Value(0)).current;
-  const rotationValueRef = useRef(0);
+  const rotAnim = useRef(new Animated.Value(0)).current;
+  const rotValRef = useRef(0);
 
-  const mapRotation = useRef(new Animated.Value(0)).current;
-  const mapRotationValueRef = useRef(0);
+  const mapRotAnim = useRef(new Animated.Value(0)).current;
+  const mapRotValRef = useRef(0);
 
-  const cameraPan = useRef(new Animated.ValueXY()).current;
+  const camPanVal = useRef(new Animated.ValueXY()).current;
 
-  const vibrationRunId = useRef(0);
-  const isCorrectRef = useRef(false);
+  const vibRunId = useRef(0);
+  const isCorrctRef = useRef(false);
 
-  const virtualPos = useRef({ x: START.x, y: START.y });
-  const currentHeadingRef = useRef(0);
+  const virtPos = useRef({ x: startPt.x, y: startPt.y });
+  const currHeadingRef = useRef(0);
 
-  const safePathRef = useRef<[number, number][]>([]);
-  const targetIndexRef = useRef(0);
+  const safePath_Ref = useRef<[number, number][]>([]);
+  const tgtIdxRef = useRef(0);
 
-  const [safePath, setSafePathState] = useState<[number, number][]>([]);
+  const [safe_path, setSafePath] = useState<[number, number][]>([]);
 
-  const joystickKnobPan = useRef(new Animated.ValueXY()).current;
-  const joystickVectorRef = useRef({ x: 0, y: 0 });
-  const movementIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const joyKnobPan = useRef(new Animated.ValueXY()).current;
+  const joyVecRef = useRef({ x: 0, y: 0 });
+  const moveInterval_Ref = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const gridPatternPath = useMemo(() => {
-    const min = -GRID_PAN_PADDING;
-    const maxX = GRID_WIDTH + GRID_PAN_PADDING;
-    const maxY = GRID_HEIGHT + GRID_PAN_PADDING;
-    const segments: string[] = [];
-    for (let x = min; x <= maxX; x += 1) {
-      segments.push(`M${x} ${min} L${x} ${maxY}`);
+  const gridPathD = useMemo(() => {
+    const minVal = -grid_PanPad;
+    const max_X = grid_W + grid_PanPad;
+    const max_Y = grid_H + grid_PanPad;
+    const segs: string[] = [];
+    for (let curX = minVal; curX <= max_X; curX += 1) {
+      segs.push(`M${curX} ${minVal} L${curX} ${max_Y}`);
     }
-    for (let y = min; y <= maxY; y += 1) {
-      segments.push(`M${min} ${y} L${maxX} ${y}`);
+    for (let curY = minVal; curY <= max_Y; curY += 1) {
+      segs.push(`M${minVal} ${curY} L${max_X} ${curY}`);
     }
-    return segments.join(' ');
+    return segs.join(' ');
   }, []);
 
-  const radarPulse = useRef(new Animated.Value(0)).current;
+  const rdarPulse = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    const pulseLoop = Animated.loop(
-      Animated.timing(radarPulse, {
+    const pulse_loop = Animated.loop(
+      Animated.timing(rdarPulse, {
         toValue: 1,
         duration: 1800,
         easing: Easing.out(Easing.ease),
         useNativeDriver: false,
       }),
     );
-    pulseLoop.start();
+    pulse_loop.start();
     return () => {
-      pulseLoop.stop();
+      pulse_loop.stop();
     };
-  }, [radarPulse]);
+  }, [rdarPulse]);
 
-  const pulseRadius = radarPulse.interpolate({ inputRange: [0, 1], outputRange: [0.4, 3.2] });
-  const pulseOpacity = radarPulse.interpolate({ inputRange: [0, 1], outputRange: [0.6, 0] });
+  const pulse_Radius = rdarPulse.interpolate({ inputRange: [0, 1], outputRange: [0.4, 3.2] });
+  const pulse_Opacity = rdarPulse.interpolate({ inputRange: [0, 1], outputRange: [0.6, 0] });
 
   if (!mapId || !destinationId) {
     return <Redirect href={"/destination"} />;
   }
 
-  const currentMapId = Number(mapId);
+  const num_mapId = Number(mapId);
 
-  const applySafePath = useCallback((path: [number, number][]) => {
-    if (!path || path.length === 0) {
+  const setSafePathHandler = useCallback((pArr: [number, number][]) => {
+    if (!pArr || pArr.length === 0) {
+      console.warn("[MapPage] Attempted to apply an empty or invalid safePath:", pArr);
       return;
     }
-    safePathRef.current = path;
-    targetIndexRef.current = 0;
-    setSafePathState(path);
+    safePath_Ref.current = pArr;
+    tgtIdxRef.current = 0;
+    setSafePath(pArr);
   }, []);
 
-  const stopVibration = useCallback(() => {
-    vibrationRunId.current += 1;
+  const haltVibration = useCallback(() => {
+    vibRunId.current += 1;
   }, []);
 
-  const loopVibration = useCallback(
-    async (strength: VibrationStrength) => {
-      stopVibration();
-      const currentRunId = vibrationRunId.current;
+  const triggerVibLoop = useCallback(
+    async (vibStrength: VibrationStrength) => {
+      haltVibration();
+      const thisRunId = vibRunId.current;
       try {
-        while (vibrationRunId.current === currentRunId) {
-          await vibrate(strength);
-          if (vibrationRunId.current !== currentRunId) break;
-          await sleep(50);
+        while (vibRunId.current === thisRunId) {
+          await vibrate(vibStrength);
+          if (vibRunId.current !== thisRunId) break;
+          await waitMs(50);
         }
-      } catch (error) {
-        stopVibration();
+      } catch (errObj) {
+        console.error("[MapPage] Vibration execution failed:", errObj);
+        haltVibration();
       }
     },
-    [stopVibration],
+    [haltVibration],
   );
 
   useEffect(() => {
-    let cancelled = false;
-    const fetchPath = async () => {
+    let isCancelled = false;
+    const loadPathData = async () => {
       try {
-        const response = await request_MapsIdPath(currentMapId, START.x, START.y, END.x, END.y);
-        if (!response || !response.path || response.path.length === 0) {
+        const resData = await request_MapsIdPath(num_mapId, startPt.x, startPt.y, end_PT.x, end_PT.y);
+        if (!resData || !resData.path || resData.path.length === 0) {
+          console.error("[MapPage] API returned an empty or invalid path response.");
           return;
         }
 
-        const orderedPath = [...response.path].reverse();
+        const revPath = [...resData.path].reverse();
 
-        if (!cancelled) {
-          applySafePath(orderedPath);
+        if (!isCancelled) {
+          setSafePathHandler(revPath);
         }
       } catch (err) {
+        console.error("[MapPage] Failed to fetch path from API:", err);
       }
     };
-    fetchPath();
+    loadPathData();
     return () => {
-      cancelled = true;
+      isCancelled = true;
     };
-  }, [applySafePath, currentMapId]);
+  }, [setSafePathHandler, num_mapId]);
 
   useEffect(() => {
-  }, [safePath]);
+    if (safe_path.length > 0 && (safe_path[0][0] !== startPt.x || safe_path[0][1] !== startPt.y)) {
+      console.warn(
+        "[MapPage] safePath did not start at the user's spawn position, prepending START."
+      );
+    }
+  }, [safe_path]);
 
-  const stopMovementLoop = useCallback(() => {
-    if (movementIntervalRef.current) {
-      clearInterval(movementIntervalRef.current);
-      movementIntervalRef.current = null;
+  const stopMoveLoop = useCallback(() => {
+    if (moveInterval_Ref.current) {
+      clearInterval(moveInterval_Ref.current);
+      moveInterval_Ref.current = null;
     }
   }, []);
 
-  const startMovementLoop = useCallback(() => {
-    if (movementIntervalRef.current) return;
+  const runMoveLoop = useCallback(() => {
+    if (moveInterval_Ref.current) return;
 
-    movementIntervalRef.current = setInterval(() => {
-      const { x: vx, y: vy } = joystickVectorRef.current;
-      if (vx === 0 && vy === 0) return;
+    moveInterval_Ref.current = setInterval(() => {
+      const { x: vecX, y: vecY } = joyVecRef.current;
+      if (vecX === 0 && vecY === 0) return;
 
-      const deltaSeconds = MOVEMENT_TICK_MS / 1000;
+      const dtSecs = moveTick_ms / 1000;
 
-      const theta = currentHeadingRef.current * (Math.PI / 180);
-      const rotatedVx = vx * Math.cos(theta) - vy * Math.sin(theta);
-      const rotatedVy = vx * Math.sin(theta) + vy * Math.cos(theta);
+      const radAngle = currHeadingRef.current * (Math.PI / 180);
+      const rot_Vx = vecX * Math.cos(radAngle) - vecY * Math.sin(radAngle);
+      const rot_Vy = vecX * Math.sin(radAngle) + vecY * Math.cos(radAngle);
 
-      const nextX = virtualPos.current.x * rotatedVx * MOVEMENT_SPEED_CELLS_PER_SEC * deltaSeconds;
-      const nextY = virtualPos.current.y * rotatedVy * MOVEMENT_SPEED_CELLS_PER_SEC * deltaSeconds;
+      const nxt_X = virtPos.current.x + rot_Vx * moveSpeedCells * dtSecs;
+      const nxt_Y = virtPos.current.y + rot_Vy * moveSpeedCells * dtSecs;
 
-      virtualPos.current = { x: nextX, y: nextY };
+      virtPos.current = { x: nxt_X, y: nxt_Y };
 
-      cameraPan.setValue({ x: nextX, y: nextY });
+      camPanVal.setValue({ x: nxt_X, y: nxt_Y });
 
-      const path = safePathRef.current;
-      const idx = targetIndexRef.current;
-      if (path.length > 0 && idx < path.length) {
-        const target = path[idx];
-        if (target && target.length >= 2) {
-          const distToTarget = Math.hypot(target[0] - nextX, target[1] - nextY);
+      const curPath = safePath_Ref.current;
+      const cIdx = tgtIdxRef.current;
+      if (curPath.length > 0 && cIdx < curPath.length) {
+        const curTarget = curPath[cIdx];
+        if (curTarget && curTarget.length >= 2) {
+          const distToTgt = Math.hypot(curTarget[0] - nxt_X, curTarget[1] - nxt_Y);
 
-          if (distToTarget < ARRIVAL_THRESHOLD && idx < path.length - 1) {
-            targetIndexRef.current = idx + 1;
+          if (distToTgt < arrvlThresh && cIdx < curPath.length - 1) {
+            tgtIdxRef.current = cIdx + 1;
           }
         }
       }
-    }, MOVEMENT_TICK_MS);
-  }, [cameraPan]);
+    }, moveTick_ms);
+  }, [camPanVal]);
 
-  const resetJoystick = useCallback(() => {
-    joystickVectorRef.current = { x: 0, y: 0 };
-    stopMovementLoop();
-    Animated.spring(joystickKnobPan, {
+  const resetJoyStick = useCallback(() => {
+    joyVecRef.current = { x: 0, y: 0 };
+    stopMoveLoop();
+    Animated.spring(joyKnobPan, {
       toValue: { x: 0, y: 0 },
       useNativeDriver: true,
       friction: 5,
     }).start();
-  }, [joystickKnobPan, stopMovementLoop]);
+  }, [joyKnobPan, stopMoveLoop]);
 
-  const handleJoystickMove = useCallback(
-    (_evt: GestureResponderEvent, gestureState: PanResponderGestureState) => {
-      const { dx, dy } = gestureState;
-      const distance = Math.hypot(dx, dy);
-      const clampedDistance = Math.min(distance, JOYSTICK_MAX_RADIUS);
-      const angle = Math.atan2(dy, dx);
+  const onJoyMove = useCallback(
+    (_evt: GestureResponderEvent, gState: PanResponderGestureState) => {
+      const { dx, dy } = gState;
+      const totalDist = Math.hypot(dx, dy);
+      const clampedDist = Math.min(totalDist, joyMaxRadius);
+      const moveAngle = Math.atan2(dy, dx);
 
-      const knobX = Math.cos(angle) * clampedDistance;
-      const knobY = Math.sin(angle) * clampedDistance;
+      const kX = Math.cos(moveAngle) * clampedDist;
+      const kY = Math.sin(moveAngle) * clampedDist;
 
-      joystickKnobPan.setValue({ x: knobX, y: knobY });
+      joyKnobPan.setValue({ x: kX, y: kY });
 
-      joystickVectorRef.current = {
-        x: knobX / JOYSTICK_MAX_RADIUS,
-        y: knobY / JOYSTICK_MAX_RADIUS,
+      joyVecRef.current = {
+        x: kX / joyMaxRadius,
+        y: kY / joyMaxRadius,
       };
     },
-    [joystickKnobPan],
+    [joyKnobPan],
   );
 
-  const panResponder = useRef(
+  const joyPanResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: () => true,
       onPanResponderGrant: () => {
-        startMovementLoop();
+        runMoveLoop();
       },
-      onPanResponderMove: handleJoystickMove,
-      onPanResponderRelease: resetJoystick,
-      onPanResponderTerminate: resetJoystick,
+      onPanResponderMove: onJoyMove,
+      onPanResponderRelease: resetJoyStick,
+      onPanResponderTerminate: resetJoyStick,
     }),
   ).current;
 
   useEffect(() => {
     return () => {
-      stopMovementLoop();
+      stopMoveLoop();
     };
-  }, [stopMovementLoop]);
+  }, [stopMoveLoop]);
 
   useEffect(() => {
-    let subscription: { remove: () => void } | null = null;
-    let smoothedHeading = 0;
-    let hasInitializedHeading = false;
+    let sensorSub: { remove: () => void } | null = null;
+    let smooth_heading = 0;
+    let isHeadingInit = false;
 
     try {
       Magnetometer.setUpdateInterval(100);
 
-      subscription = Magnetometer.addListener(({ x, y }) => {
-        if (typeof x !== 'number' || typeof y !== 'number') {
+      sensorSub = Magnetometer.addListener(({ x: rawX, y: rawY }) => {
+        if (typeof rawX !== 'number' || typeof rawY !== 'number') {
           return;
         }
 
-        const rawHeading = normalizeAngle(Math.atan(y / x) * (Math.PI / 180));
+        const calculatedHeading = normAngle(Math.atan2(rawY, rawX) * (180 / Math.PI));
 
-        if (!hasInitializedHeading) {
-          smoothedHeading = rawHeading;
-          hasInitializedHeading = true;
+        if (!isHeadingInit) {
+          smooth_heading = calculatedHeading;
+          isHeadingInit = true;
         } else {
-          const smoothingDelta = shortestAngleDelta(smoothedHeading, rawHeading);
-          smoothedHeading = normalizeAngle(smoothedHeading + smoothingDelta * HEADING_SMOOTHING_ALPHA);
+          const delta_smooth = shortAngDelta(smooth_heading, calculatedHeading);
+          smooth_heading = normAngle(smooth_heading + delta_smooth * headingSmoothAlpha);
         }
 
-        const heading = smoothedHeading;
-        currentHeadingRef.current = heading;
+        const headVal = smooth_heading;
+        currHeadingRef.current = headVal;
 
-        const path = safePathRef.current;
-        const idx = targetIndexRef.current;
-        const hasActiveTarget = path.length > 0 && idx < path.length;
+        const pathArr = safePath_Ref.current;
+        const curTgtIdx = tgtIdxRef.current;
+        const isActiveTgt = pathArr.length > 0 && curTgtIdx < pathArr.length;
 
-        let targetAngle = 0;
+        let tgtAngVal = 0;
 
-        if (hasActiveTarget) {
-          const target = path[idx];
-          if (!target || target.length < 2) return;
+        if (isActiveTgt) {
+          const pointTarget = pathArr[curTgtIdx];
+          if (!pointTarget || pointTarget.length < 2) return;
 
-          const [tx, ty] = target;
-          const dx = tx - virtualPos.current.x;
-          const dy = ty - virtualPos.current.y;
-          targetAngle = normalizeAngle(Math.atan2(dx, -dy) * (180 / Math.PI));
+          const [tx, ty] = pointTarget;
+          const deltaX = tx - virtPos.current.x;
+          const deltaY = ty - virtPos.current.y;
+          tgtAngVal = normAngle(Math.atan2(deltaX, -deltaY) * (180 / Math.PI));
 
-          const diff = angularDistance(targetAngle, heading);
-          const isPointingCorrectly = diff <= HEADING_CONE_DEGREES;
+          const angDiff = angDistance(tgtAngVal, headVal);
+          const isPointedCorrect = angDiff <= heading_ConeDeg;
 
-          if (isPointingCorrectly && !isCorrectRef.current) {
-            isCorrectRef.current = true;
-            loopVibration('success');
-          } else if (!isPointingCorrectly && isCorrectRef.current) {
-            isCorrectRef.current = false;
-            stopVibration();
+          if (isPointedCorrect && !isCorrctRef.current) {
+            isCorrctRef.current = true;
+            triggerVibLoop('success');
+          } else if (!isPointedCorrect && isCorrctRef.current) {
+            isCorrctRef.current = false;
+            haltVibration();
           }
-        } else if (isCorrectRef.current) {
-          isCorrectRef.current = false;
-          stopVibration();
+        } else if (isCorrctRef.current) {
+          isCorrctRef.current = false;
+          haltVibration();
         }
 
-        const rawRotation = normalizeAngle(targetAngle - heading);
-        const currentMod = normalizeAngle(rotationValueRef.current);
-        const delta = shortestAngleDelta(currentMod, rawRotation);
-        rotationValueRef.current += delta;
+        const rawRotDeg = normAngle(tgtAngVal - headVal);
+        const currModDeg = normAngle(rotValRef.current);
+        const rotDiff = shortAngDelta(currModDeg, rawRotDeg);
+        rotValRef.current += rotDiff;
 
-        Animated.timing(rotation, {
-          toValue: rotationValueRef.current,
+        Animated.timing(rotAnim, {
+          toValue: rotValRef.current,
           duration: 100,
           easing: Easing.linear,
           useNativeDriver: true,
         }).start();
 
-        const rawMapRot = normalizeAngle(-heading);
-        const currentMapMod = normalizeAngle(mapRotationValueRef.current);
-        const mapDelta = shortestAngleDelta(currentMapMod, rawMapRot);
-        mapRotationValueRef.current += mapDelta;
+        const raw_MapRot = normAngle(-headVal);
+        const currMapModDeg = normAngle(mapRotValRef.current);
+        const mapDeltaRot = shortAngDelta(currMapModDeg, raw_MapRot);
+        mapRotValRef.current += mapDeltaRot;
 
-        Animated.timing(mapRotation, {
-          toValue: mapRotationValueRef.current,
+        Animated.timing(mapRotAnim, {
+          toValue: mapRotValRef.current,
           duration: 100,
           easing: Easing.linear,
           useNativeDriver: true,
         }).start();
       });
-    } catch (err) {
+    } catch (sensorErr) {
+      console.error("[MapPage] Failed to initialize Magnetometer listener:", sensorErr);
     }
 
     return () => {
-      if (subscription) {
-        subscription.remove();
+      if (sensorSub) {
+        sensorSub.remove();
       }
-      stopVibration();
+      haltVibration();
     };
-  }, [rotation, mapRotation, loopVibration, stopVibration]);
+  }, [rotAnim, mapRotAnim, triggerVibLoop, haltVibration]);
 
-  const rotateInterpolate = rotation.interpolate({
+  const rotInterp = rotAnim.interpolate({
     inputRange: [0, 360],
     outputRange: ["0deg", "360deg"],
   });
 
-  const mapRotateInterpolate = mapRotation.interpolate({
+  const mapRotInterp = mapRotAnim.interpolate({
     inputRange: [0, 360],
     outputRange: ["0deg", "360deg"],
   });
 
-  const worldOffsetX = cameraPan.x.interpolate({
-    inputRange: [0, GRID_WIDTH],
-    outputRange: [GRID_WIDTH / 2],
+  const world_OffX = camPanVal.x.interpolate({
+    inputRange: [0, grid_W],
+    outputRange: [grid_W / 2, grid_W / 2 - grid_W],
   });
 
-  const worldOffsetY = cameraPan.y.interpolate({
-    inputRange: [0, GRID_HEIGHT],
-    outputRange: [GRID_HEIGHT / 2, GRID_HEIGHT / 2 - GRID_HEIGHT],
+  const world_OffY = camPanVal.y.interpolate({
+    inputRange: [0, grid_H],
+    outputRange: [grid_H / 2, grid_H / 2 - grid_H],
   });
 
-  const needsAnchor =
-    safePath.length > 0 && (safePath[0][0] !== START.x || safePath[0][1] !== START.y);
+  const isAnchorReq =
+    safe_path.length > 0 && (safe_path[0][0] !== startPt.x || safe_path[0][1] !== startPt.y);
 
-  const visualPathPoints: [number, number][] = needsAnchor
-    ? [[START.x, START.y] as [number, number], ...safePath]
-    : safePath;
+  const visPathPts: [number, number][] = isAnchorReq
+    ? [[startPt.x, startPt.y] as [number, number], ...safe_path]
+    : safe_path;
 
-  const pathData =
-    visualPathPoints.length > 0
-      ? visualPathPoints.map((p, i) => `${i === 0 ? 'M' : 'L'}${p[0]} ${p[1]}`).join(' ')
+  const svgPathStr =
+    visPathPts.length > 0
+      ? visPathPts.map((pt, ind) => `${ind === 0 ? 'M' : 'L'}${pt[0]} ${pt[1]}`).join(' ')
       : undefined;
 
   return (
@@ -407,13 +415,13 @@ export default function MapPage() {
           <Animated.View
             style={[
               StyleSheet.absoluteFill,
-              { transform: [{ rotate: mapRotateInterpolate }] }
+              { transform: [{ rotate: mapRotInterp }] }
             ]}
           >
             <Svg
-              width={MINIMAP_SIZE}
-              height={MINIMAP_SIZE}
-              viewBox={`0 0 ${GRID_WIDTH} ${GRID_HEIGHT}`}
+              width={miniMap_sz}
+              height={miniMap_sz}
+              viewBox={`0 0 ${grid_W} ${grid_H}`}
               style={StyleSheet.absoluteFill}
             >
               <Defs>
@@ -427,17 +435,17 @@ export default function MapPage() {
                 </LinearGradient>
               </Defs>
 
-              <AnimatedG translateX={worldOffsetX} translateY={worldOffsetY}>
+              <Anim_G translateX={world_OffX} translateY={world_OffY}>
                 <Path
-                  d={gridPatternPath}
+                  d={gridPathD}
                   stroke="rgba(92, 189, 185, 0.16)"
                   strokeWidth={0.045}
                 />
 
-                {pathData && (
+                {svgPathStr && (
                   <>
                     <Path
-                      d={pathData}
+                      d={svgPathStr}
                       stroke="#5cbdb9"
                       strokeOpacity={0.25}
                       strokeWidth={1.4}
@@ -446,7 +454,7 @@ export default function MapPage() {
                       vectorEffect="non-scaling-stroke"
                     />
                     <Path
-                      d={pathData}
+                      d={svgPathStr}
                       stroke="url(#pathGradient)"
                       strokeWidth={0.6}
                       strokeDasharray="0.45 0.35"
@@ -456,21 +464,21 @@ export default function MapPage() {
                     />
                   </>
                 )}
-              </AnimatedG>
+              </Anim_G>
 
-              <Circle cx={GRID_WIDTH / 2} cy={GRID_HEIGHT / 2} r={2.4} fill="url(#radarGlow)" />
-              <AnimatedCircle
-                cx={GRID_WIDTH / 2}
-                cy={GRID_HEIGHT / 2}
-                r={pulseRadius}
+              <Circle cx={grid_W / 2} cy={grid_H / 2} r={2.4} fill="url(#radarGlow)" />
+              <AnimCircle
+                cx={grid_W / 2}
+                cy={grid_H / 2}
+                r={pulse_Radius}
                 stroke="#5cbdb9"
                 strokeWidth={0.12}
                 fill="none"
-                opacity={pulseOpacity}
+                opacity={pulse_Opacity}
               />
               <Circle
-                cx={GRID_WIDTH / 2}
-                cy={GRID_HEIGHT / 2}
+                cx={grid_W / 2}
+                cy={grid_H / 2}
                 r={0.34}
                 fill="#fbe3e8"
                 stroke="#5cbdb9"
@@ -486,7 +494,7 @@ export default function MapPage() {
         <View style={localStyles.centerStack}>
           <Animated.View
             style={{
-              transform: [{ rotate: rotateInterpolate }],
+              transform: [{ rotate: rotInterp }],
               transformOrigin: "center center",
               shadowColor: "#2C3E50",
               shadowOffset: { width: 0, height: 12 },
@@ -513,14 +521,14 @@ export default function MapPage() {
           </Animated.View>
 
           <View
-            style={[localStyles.joystickBase, !JOYSTICK_VISIBLE && localStyles.joystickHidden]}
-            {...panResponder.panHandlers}
+            style={[localStyles.joystickBase, !isJoyVisible && localStyles.joystickHidden]}
+            {...joyPanResponder.panHandlers}
           >
             <Animated.View
               style={[
                 localStyles.joystickKnob,
-                !JOYSTICK_VISIBLE && localStyles.joystickHidden,
-                { transform: joystickKnobPan.getTranslateTransform() },
+                !isJoyVisible && localStyles.joystickHidden,
+                { transform: joyKnobPan.getTranslateTransform() },
               ]}
             />
           </View>
@@ -541,10 +549,10 @@ export default function MapPage() {
 
 const localStyles = StyleSheet.create({
   miniMapContainer: {
-    width: MINIMAP_SIZE,
-    height: MINIMAP_SIZE,
+    width: miniMap_sz,
+    height: miniMap_sz,
     backgroundColor: '#ffffff',
-    borderRadius: MINIMAP_SIZE / 2,
+    borderRadius: miniMap_sz / 2,
     overflow: 'hidden',
     position: 'relative',
     shadowColor: "#2C3E50",
@@ -559,9 +567,9 @@ const localStyles = StyleSheet.create({
   },
   joystickBase: {
     marginTop: 28,
-    width: JOYSTICK_BASE_SIZE,
-    height: JOYSTICK_BASE_SIZE,
-    borderRadius: JOYSTICK_BASE_SIZE / 2,
+    width: joyBaseSz,
+    height: joyBaseSz,
+    borderRadius: joyBaseSz / 2,
     backgroundColor: 'rgba(92, 189, 185, 0.12)',
     borderWidth: 1.5,
     borderColor: 'rgba(92, 189, 185, 0.35)',
@@ -569,9 +577,9 @@ const localStyles = StyleSheet.create({
     justifyContent: 'center',
   },
   joystickKnob: {
-    width: JOYSTICK_KNOB_SIZE,
-    height: JOYSTICK_KNOB_SIZE,
-    borderRadius: JOYSTICK_KNOB_SIZE / 2,
+    width: joyKnob_sz,
+    height: joyKnob_sz,
+    borderRadius: joyKnob_sz / 2,
     backgroundColor: '#5cbdb9',
     shadowColor: "#2C3E50",
     shadowOffset: { width: 0, height: 4 },
@@ -579,6 +587,7 @@ const localStyles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 4,
   },
+
   joystickHidden: {
     opacity: 0,
   },
