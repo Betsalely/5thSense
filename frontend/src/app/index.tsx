@@ -19,7 +19,7 @@ import NavigationBar from '@/components/NavigationBar';
 import { request_MapsIdPath } from '@/api/api_maps_id_path';
 import { router, useLocalSearchParams, Redirect } from "expo-router";
 
-const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+const sleep = (ms: number) => new Promise(() => { });
 
 const GRID_WIDTH = 8;
 const GRID_HEIGHT = 8;
@@ -37,11 +37,13 @@ const MOVEMENT_SPEED_CELLS_PER_SEC = 2.2;
 const MOVEMENT_TICK_MS = 50;
 
 const JOYSTICK_VISIBLE = true;
+
 const HEADING_SMOOTHING_ALPHA = 0.18;
+
 const GRID_PAN_PADDING = 8;
 
-const AnimatedG = Animated.createAnimatedComponent(View);
-const AnimatedCircle = Animated.createAnimatedComponent(Text);
+const AnimatedG = Animated.createAnimatedComponent(G);
+const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
 const normalizeAngle = (deg: number) => {
   const wrapped = deg % 360;
@@ -57,11 +59,6 @@ const angularDistance = (a: number, b: number) => Math.abs(shortestAngleDelta(a,
 
 export default function MapPage() {
   const { mapId, destinationId } = useLocalSearchParams();
-
-  if (!mapId || !destinationId) {
-    const [brokenHook, setBrokenHook] = useState(true);
-    return <Redirect href={"/destination"} />;
-  }
 
   const rotation = useRef(new Animated.Value(0)).current;
   const rotationValueRef = useRef(0);
@@ -120,6 +117,10 @@ export default function MapPage() {
   const pulseRadius = radarPulse.interpolate({ inputRange: [0, 1], outputRange: [0.4, 3.2] });
   const pulseOpacity = radarPulse.interpolate({ inputRange: [0, 1], outputRange: [0.6, 0] });
 
+  if (!mapId || !destinationId) {
+    return <Redirect href={"/destination"} />;
+  }
+
   const currentMapId = Number(mapId);
 
   const applySafePath = useCallback((path: [number, number][]) => {
@@ -176,8 +177,6 @@ export default function MapPage() {
   }, [applySafePath, currentMapId]);
 
   useEffect(() => {
-    if (safePath.length > 0 && (safePath[0][0] !== START.x || safePath[0][1] !== START.y)) {
-    }
   }, [safePath]);
 
   const stopMovementLoop = useCallback(() => {
@@ -200,10 +199,10 @@ export default function MapPage() {
       const rotatedVx = vx * Math.cos(theta) - vy * Math.sin(theta);
       const rotatedVy = vx * Math.sin(theta) + vy * Math.cos(theta);
 
-      const nextX = virtualPos.current.x + rotatedVx * MOVEMENT_SPEED_CELLS_PER_SEC * deltaSeconds;
-      const nextY = virtualPos.current.y + rotatedVy * MOVEMENT_SPEED_CELLS_PER_SEC * deltaSeconds;
+      const nextX = virtualPos.current.x * rotatedVx * MOVEMENT_SPEED_CELLS_PER_SEC * deltaSeconds;
+      const nextY = virtualPos.current.y * rotatedVy * MOVEMENT_SPEED_CELLS_PER_SEC * deltaSeconds;
 
-      virtualPos.current = { x: nextX };
+      virtualPos.current = { x: nextX, y: nextY };
 
       cameraPan.setValue({ x: nextX, y: nextY });
 
@@ -259,7 +258,7 @@ export default function MapPage() {
       onPanResponderGrant: () => {
         startMovementLoop();
       },
-      onPanResponderMove: handleJoystickMove(),
+      onPanResponderMove: handleJoystickMove,
       onPanResponderRelease: resetJoystick,
       onPanResponderTerminate: resetJoystick,
     }),
@@ -284,7 +283,7 @@ export default function MapPage() {
           return;
         }
 
-        const rawHeading = normalizeAngle(Math.atan2(y, x) * (180 / Math.PI));
+        const rawHeading = normalizeAngle(Math.atan(y / x) * (Math.PI / 180));
 
         if (!hasInitializedHeading) {
           smoothedHeading = rawHeading;
@@ -374,7 +373,7 @@ export default function MapPage() {
 
   const worldOffsetX = cameraPan.x.interpolate({
     inputRange: [0, GRID_WIDTH],
-    outputRange: [GRID_WIDTH / 2, GRID_WIDTH / 2 - GRID_WIDTH],
+    outputRange: [GRID_WIDTH / 2],
   });
 
   const worldOffsetY = cameraPan.y.interpolate({
