@@ -6,22 +6,43 @@ import AdminIcon from "@/assets/icons/admin.svg";
 import { commonStyles } from "@/styles/commonStyles";
 import NavigationBar from "@/components/NavigationBar";
 import { request_Login } from "../api/login";
+import {error} from "@expo/fingerprint/cli/build/utils/log";
 
 export default function AdminPage() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
 
+  // For post-login routing
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [userRole, setUserRole] = useState("");
+
+  // Error message
+  const [errorMessage, setErrorMessage] = useState("");
+
   const handleLogin = async () => {
+    setErrorMessage("");
     try {
       const response = await request_Login({
         username,
         password
       });
-      console.log(response);
-    } catch (error) {
-      console.log(error);
+      console.log("Login successful:",response);
+      // Record user role and login status
+      setUserRole(response.user_role);
+      setIsLoggedIn(true);
+    } catch (error: any) {
+      setErrorMessage(error.message || "Login failed");
     }
   };
+
+  const handleLogout = () => {
+    // Clear everything when the user wants to log out
+    setIsLoggedIn(false);
+    setUserRole("");
+    setUsername("");
+    setPassword("");
+  }
+
 
   const [fontsLoaded] = useFonts({
     "InstrumentSans-Regular": require("../../assets/fonts/InstrumentSans-VariableFont_wdth,wght.ttf"),
@@ -39,8 +60,15 @@ export default function AdminPage() {
             <Text style={styles.title}>System Access</Text>
             <Text style={styles.subtitle}>Please authenticate to continue</Text>
           </View>
-
+          {!isLoggedIn ? (
+            // Dynamic content: if not logged in
           <View style={styles.form}>
+            {errorMessage ? (
+                <Text style={{color: "#e74c3c", fontSize: 13, marginBottom: 8}}>
+                  {errorMessage}
+
+                </Text>
+            ): null}
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Username</Text>
               <TextInput
@@ -65,7 +93,32 @@ export default function AdminPage() {
             <Pressable style={styles.button} onPress={handleLogin}>
               <Text style={styles.buttonText}>Sign In</Text>
             </Pressable>
+
+
           </View>
+
+
+              ) : (
+                  // Dynamic content: if logged in
+                  <View style={styles.form}>
+                    {userRole==="superadmin"&&(
+                        // For superadmin only
+                        <Pressable style={styles.button}>
+                          <Text style={styles.buttonText}>Manage Users</Text>
+                        </Pressable>
+                    )}
+                    <Pressable style={styles.button}>
+                      <Text style={styles.buttonText}>Manage Maps</Text>
+                    </Pressable>
+                    <Pressable style={styles.button}>
+                      <Text style={styles.buttonText}>Manage Destinations</Text>
+                    </Pressable>
+                    <Pressable style={[styles.button, styles.logoutButton]}>
+                      <Text style={[styles.buttonText, styles.logoutText]}>Sign Out</Text>
+
+                    </Pressable>
+                  </View>
+          )}
         </View>
       </View>
 
@@ -151,5 +204,14 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     fontFamily: "InstrumentSans-Regular",
     letterSpacing: 0.5,
+  },
+  logoutButton: {
+    backgroundColor: "transparent",
+    borderWidth: 1.5,
+    borderColor: "#ebf6f5",
+    marginTop: 4,
+  },
+  logoutText: {
+    color: "#A0AAB2",
   },
 });

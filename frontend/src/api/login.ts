@@ -32,6 +32,7 @@ Authorization: Token 2ef7fd8be3b02538aff093eebab72d55e8847b4c
 
 type LoginSuccess = {
     "token":                string;
+    "user_role": string;
 }
 
 type LoginFailed = {
