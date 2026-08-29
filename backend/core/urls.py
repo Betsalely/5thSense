@@ -1,9 +1,9 @@
 from django.contrib import admin
 from django.urls import path
-from rest_framework.authtoken.views import obtain_auth_token
-from core.views import UserRegistrationView
+from core.views import UserRegistrationView, AuthToken
 
 urlpatterns = [
     path('api/users/register/', UserRegistrationView.as_view(), name='api-user-register'),
-    path('api/users/login/', obtain_auth_token, name='api-user-login'),
+    path('api/users/login/', AuthToken.as_view(), name='api-user-login'),
 ]
+
