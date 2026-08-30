@@ -35,7 +35,7 @@ class UserListView(generics.ListAPIView):
     permission_classes = [IsAuthenticated, IsSuperAdminUser]
 
 # Manage user details
-class UserDetailView(generics.RetrieveAPIView):
+class UserDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = User.objects.all()
     serializer_class = UserManagementSerializer
     permission_classes = [IsAuthenticated, IsSuperAdminUser]

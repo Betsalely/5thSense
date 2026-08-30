@@ -7,8 +7,11 @@ import { commonStyles } from "@/styles/commonStyles";
 import NavigationBar from "@/components/NavigationBar";
 import { request_Login } from "../api/login";
 import {error} from "@expo/fingerprint/cli/build/utils/log";
+import {useRouter} from "expo-router";
 
 export default function AdminPage() {
+  const router = useRouter();
+
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
 
@@ -103,7 +106,9 @@ export default function AdminPage() {
                   <View style={styles.form}>
                     {userRole==="superadmin"&&(
                         // For superadmin only
-                        <Pressable style={styles.button}>
+                        <Pressable style={styles.button}
+                        onPress={()=>router.push("/manage-users")}
+                        >
                           <Text style={styles.buttonText}>Manage Users</Text>
                         </Pressable>
                     )}
