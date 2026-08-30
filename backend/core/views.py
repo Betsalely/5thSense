@@ -5,7 +5,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from .permissions import IsSuperAdminUser
-from .serializers import UserRegistrationSerializer
+from .serializers import UserRegistrationSerializer, UserManagementSerializer
 from django.contrib.auth import get_user_model
 
 User = get_user_model()
@@ -27,3 +27,15 @@ class AuthToken(ObtainAuthToken):
             'token': token.key,
             'user_role': getattr(user, 'user_role', 'admin'),
         })
+
+# View all users
+class UserListView(generics.ListAPIView):
+    queryset = User.objects.all().order_by('id')
+    serializer_class = UserManagementSerializer
+    permission_classes = [IsAuthenticated, IsSuperAdminUser]
+
+# Manage user details
+class UserDetailView(generics.RetrieveAPIView):
+    queryset = User.objects.all()
+    serializer_class = UserManagementSerializer
+    permission_classes = [IsAuthenticated, IsSuperAdminUser]
