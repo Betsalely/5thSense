@@ -112,7 +112,7 @@ export default function AdminPage() {
                           <Text style={styles.buttonText}>Manage Users</Text>
                         </Pressable>
                     )}
-                    <Pressable style={styles.button}>
+                    <Pressable style={styles.button} onPress={()=>router.push("/manage-maps")}>
                       <Text style={styles.buttonText}>Manage Maps</Text>
                     </Pressable>
                     <Pressable style={styles.button}>
