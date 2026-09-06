@@ -47,7 +47,7 @@ def find_shortest_path(grid_data, start, end):
                 current = came_from[current]
             path.append(list(start))
             # Reverse the path to return the path that starts from the starting point and ends at the ending point
-            return path[::1]
+            return path[::-1]
 
         # Exploring the neighbouring cells
         for dx,dy in directions:
