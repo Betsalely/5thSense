@@ -4,7 +4,7 @@ import {useFonts} from "expo-font";
 import MapIcon from "@/assets/icons/map.svg";
 import {commonStyles} from "@/styles/commonStyles";
 import NavigationBar from "@/components/NavigationBar";
-import {request_Maps, MapItem} from "@/api/api_maps";
+import {request_Maps, request_MapListCreate, request_UpdateMap, request_DeleteMap, MapItem} from "@/api/api_maps";
 
 export default function ManageMapPage() {
     const [maps, setMaps] = useState<MapItem[]>([]);
@@ -12,8 +12,9 @@ export default function ManageMapPage() {
     const [selectedMap, setSelectedMap] = useState<MapItem | null>(null);
     const [isFormVisible, setIsFormVisible] = useState(false);
 
-    const [mapname, setMapName] = useState<string>("");
-    const [cellsize, setCellSize] = useState<number>(0);
+    const [name, setMapName] = useState<string>("");
+    const [griddata, setGridData] = useState<unknown>("");
+    const [cell_size, setCellSize] = useState<number>(0);
     const [length, setLength] = useState<number>(0);
     const [width, setWidth] = useState<number>(0);
 
@@ -42,9 +43,10 @@ export default function ManageMapPage() {
     const handleOpenCreate = () => {
         setSelectedMap(null);
         setMapName("");
-        setCellSize("");
-        setWidth("");
-        setLength("");
+        setGridData("[]")
+        setCellSize(0);
+        setWidth(0);
+        setLength(0);
         setIsFormVisible(true);
     };
 
@@ -52,6 +54,7 @@ export default function ManageMapPage() {
     const handleOpenEdit = (map: MapItem) => {
         console.log(map);
         setSelectedMap(map);
+        setGridData(map.grid_data);
         setMapName(map.name);
         setCellSize(map.cell_size);
         setWidth(map.width);
@@ -59,8 +62,55 @@ export default function ManageMapPage() {
         setIsFormVisible(true);
     };
 
+    const handleDelete = async (id: number) => {
+        Alert.alert("Confirm Deletion", "Are you sure you want to delete this map?",
+            [{text: "Cancel", style: "cancel"},
+                {text: "Delete", style: "destructive", onPress: async () => {
+                    try {
+                        await request_DeleteMap(id);
+                        fetchMaps();
+                    } catch (error) {
+                        Alert.alert("Error", "Failed to delete the map");
+                    }
+                }}
+            ]
+        )
+    }
+
     const handleSave = async () => {
-        console.log("nuh uh");
+        if(!name) {
+            Alert.alert("Error", "Map name is required");
+            return;
+        }
+
+        try {
+
+            /*
+            type MapPayload = {
+                grid_data: unknown;
+                cell_size: number;
+                length: number;
+                width: number;
+            };
+            */
+
+            const payload: any = {
+                name, cell_size, length, width
+            };
+            if (griddata) payload.grid_data = griddata;
+
+            if (selectedMap) {
+                await request_UpdateMap(selectedMap.id, payload);
+            } else {
+                if (!griddata) {
+                    Alert.alert("Validation Error", "Grid data is required for new users.");
+                    return;
+                }
+                await request_MapListCreate(payload);
+            }
+        } catch (error: any) {
+            Alert.alert("Error", error.message || "Failed to save map");
+        }
     };
 
     return (
@@ -84,7 +134,7 @@ export default function ManageMapPage() {
                                     style={styles.input}
                                     placeholder="Enter the map name"
                                     placeholderTextColor="#A0AAB2"
-                                    value={mapname}
+                                    value={name}
                                     onChangeText={setMapName}
                                     autoCapitalize="none"
                                 />
@@ -96,8 +146,8 @@ export default function ManageMapPage() {
                                     style={styles.input}
                                     placeholder="Enter the cell size"
                                     placeholderTextColor="#A0AAB2"
-                                    value={String(cellsize)}
-                                    onChangeText={(text) => setWidth(Number(text))}
+                                    value={String(cell_size)}
+                                    onChangeText={(text) => setCellSize(Number(text))}
                                     autoCapitalize="none"
                                 />
                             </View>
@@ -109,7 +159,7 @@ export default function ManageMapPage() {
                                     placeholder="Enter the length"
                                     placeholderTextColor="#A0AAB2"
                                     value={String(length)}
-                                    onChangeText={(text) => setWidth(Number(text))}
+                                    onChangeText={(text) => setLength(Number(text))}
                                     autoCapitalize="none"
                                 />
                             </View>
@@ -166,7 +216,7 @@ export default function ManageMapPage() {
                                             <Text style={styles.editBtnText}>Edit</Text>
                                         </Pressable>
 
-                                        <Pressable style={styles.deleteBtn}>
+                                        <Pressable style={styles.deleteBtn} onPress={() => handleDelete(map.id)}>
                                             <Text style={styles.deleteBtnText}>Delete</Text>
                                         </Pressable>
                                     </View>
