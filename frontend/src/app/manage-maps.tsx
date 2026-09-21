@@ -108,6 +108,8 @@ export default function ManageMapPage() {
                 }
                 await request_MapListCreate(payload);
             }
+            setIsFormVisible(false);
+            fetchMaps();
         } catch (error: any) {
             Alert.alert("Error", error.message || "Failed to save map");
         }

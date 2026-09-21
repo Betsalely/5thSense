@@ -105,7 +105,7 @@ Content-Disposition: form-data; name="width"
 
 export async function request_UpdateMap(id: number, payload: Partial<MapPayload>): Promise<MapPayload> {
     return await request<MapItem>(`/api/maps/${id}/`, {
-        method: "PUT",
+        method: "PATCH",
         body: JSON.stringify(payload),
     });
 }
