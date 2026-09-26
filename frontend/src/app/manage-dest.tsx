@@ -5,6 +5,7 @@ import MapIcon from "@/assets/icons/map.svg";
 import { commonStyles } from "@/styles/commonStyles";
 import NavigationBar from "@/components/NavigationBar";
 import { request } from "@/api/client";
+import {useRouter} from "expo-router";
 import { request_Maps, MapItem } from "@/api/api_maps";
 
 type Coordinates = {
@@ -31,6 +32,7 @@ type DestinationPayload = {
 const ENABLE_DESTINATION_UPDATES = false;
 
 export default function ManageDestPage() {
+    const router = useRouter();
     const [maps, setMaps] = useState<MapItem[]>([]);
     const [dests, setDests] = useState<DestinationItem[]>([]);
 
@@ -258,6 +260,14 @@ export default function ManageDestPage() {
         }
     };
 
+    const handleBackToAdmin = () => {
+        if (router.canGoBack()) {
+          router.back();
+        } else {
+          router.replace("/admin");
+        }
+    };
+
     if (!fontsLoaded) {
         return (
             <View style={[commonStyles.screen, styles.centerLoader]}>
@@ -269,6 +279,15 @@ export default function ManageDestPage() {
     return (
         <View style={commonStyles.screen}>
             <View style={styles.container}>
+                 <View style={styles.backButtonContainer}>
+                  <Pressable
+                    style={styles.backToAdminBtn}
+                    onPress={handleBackToAdmin}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  >
+                    <Text style={styles.backToAdminText}>← Back to Admin Panel</Text>
+                  </Pressable>
+                </View>
                 {!selectedMap ? (
                     <View style={[styles.card, { flex: 1, maxHeight: "85%" }]}>
                         <View style={styles.header}>
@@ -489,6 +508,22 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.05,
         shadowRadius: 24,
         elevation: 8,
+    },
+    backButtonContainer: {
+        width: "100%",
+        maxWidth: 380,
+        marginBottom: 12,
+      },
+    backToAdminBtn: {
+        alignSelf: "flex-start",
+        paddingVertical: 6,
+        paddingHorizontal: 4,
+    },
+    backToAdminText: {
+        fontSize: 14,
+        color: "#5cbdb9",
+        fontWeight: "700",
+        fontFamily: "Inter-Regular",
     },
     header: {
         alignItems: "center",

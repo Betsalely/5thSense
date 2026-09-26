@@ -3,6 +3,10 @@ import * as SecureStore from "expo-secure-store";
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL;
 
 const TOKEN_KEY = "access_token";
+const SESSION_TIMESTAMP_KEY = "session_timestamp";
+const USER_ROLE_KEY = "user_role";
+
+const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 
 let token: string | null = null;
 
@@ -27,9 +31,50 @@ export function getToken(): string | null {
     return token;
 }
 
+export async function saveSession(newToken: string, role: string): Promise<void> {
+    token = newToken;
+    const now = Date.now().toString();
+    await Promise.all([
+        SecureStore.setItemAsync(TOKEN_KEY, newToken),
+        SecureStore.setItemAsync(SESSION_TIMESTAMP_KEY, now),
+        SecureStore.setItemAsync(USER_ROLE_KEY, role),
+    ]);
+}
+
+export async function getValidSession(): Promise<{ token: string; role: string } | null> {
+    const [storedToken, storedTimestamp, storedRole] = await Promise.all([
+        SecureStore.getItemAsync(TOKEN_KEY),
+        SecureStore.getItemAsync(SESSION_TIMESTAMP_KEY),
+        SecureStore.getItemAsync(USER_ROLE_KEY),
+    ]);
+
+    if (!storedToken || !storedTimestamp || !storedRole) {
+        return null;
+    }
+
+    const sessionAge = Date.now() - parseInt(storedTimestamp, 10);
+    if (sessionAge > SEVEN_DAYS_MS) {
+        await clearToken();
+        return null;
+    }
+
+    token = storedToken;
+    return { token: storedToken, role: storedRole };
+}
+
 export async function clearToken(): Promise<void> {
     token = null;
-    await SecureStore.deleteItemAsync(TOKEN_KEY);
+    const deleteSafe = async (key: string) => {
+        try {
+            await SecureStore.deleteItemAsync(key);
+        } catch {
+        }
+    };
+    await Promise.all([
+        SecureStore.deleteItemAsync(TOKEN_KEY),
+        SecureStore.deleteItemAsync(SESSION_TIMESTAMP_KEY),
+        SecureStore.deleteItemAsync(USER_ROLE_KEY),
+    ]);
 }
 
 export async function request<T>(

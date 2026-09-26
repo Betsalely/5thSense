@@ -2,11 +2,13 @@ import React, {useEffect, useState} from "react";
 import {View,Text, TextInput, Pressable, StyleSheet, ScrollView, ActivityIndicator, Alert} from "react-native";
 import {useFonts} from "expo-font";
 import MapIcon from "@/assets/icons/map.svg";
+import {useRouter} from "expo-router";
 import {commonStyles} from "@/styles/commonStyles";
 import NavigationBar from "@/components/NavigationBar";
 import {request_Maps, request_MapListCreate, request_UpdateMap, request_DeleteMap, MapItem} from "@/api/api_maps";
 
 export default function ManageMapPage() {
+    const router = useRouter();
     const [maps, setMaps] = useState<MapItem[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [selectedMap, setSelectedMap] = useState<MapItem | null>(null);
@@ -115,9 +117,26 @@ export default function ManageMapPage() {
         }
     };
 
+    const handleBackToAdmin = () => {
+        if (router.canGoBack()) {
+          router.back();
+        } else {
+          router.replace("/admin");
+        }
+    };
+
     return (
         <View style={commonStyles.screen}>
             <View style={styles.container}>
+                 <View style={styles.backButtonContainer}>
+                  <Pressable
+                    style={styles.backToAdminBtn}
+                    onPress={handleBackToAdmin}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  >
+                    <Text style={styles.backToAdminText}>← Back to Admin Panel</Text>
+                  </Pressable>
+                </View>
                 {isFormVisible ? (
                     <View style={styles.card}>
                         <View style={styles.header}>
@@ -258,6 +277,22 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.05,
         shadowRadius: 24,
         elevation: 8,
+    },
+    backButtonContainer: {
+        width: "100%",
+        maxWidth: 380,
+        marginBottom: 12,
+      },
+    backToAdminBtn: {
+        alignSelf: "flex-start",
+        paddingVertical: 6,
+        paddingHorizontal: 4,
+    },
+    backToAdminText: {
+        fontSize: 14,
+        color: "#5cbdb9",
+        fontWeight: "700",
+        fontFamily: "Inter-Regular",
     },
     header: {
         alignItems: "center",

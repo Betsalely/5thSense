@@ -24,7 +24,7 @@ const NAV_ITEMS: NavItem[] = [
     { label: "Map", path: "/", Icon: MapIcon },
     { label: "Destination", path: "/destination", Icon: DestinationIcon},
     { label: "Settings", path: "/settings", Icon: SettingsIcon },
-    { label: "System", path: "/admin", Icon: AdminIcon },
+    { label: "Admin", path: "/admin", Icon: AdminIcon },
 ];
 
 function NavButton({ item, isActive, onPress }: { item: NavItem; isActive: boolean; onPress: () => void }) {

@@ -1,6 +1,6 @@
 import { TextInput, Pressable, StyleSheet, Text, View } from "react-native";
 import { useFonts } from "expo-font";
-import React, { useState } from "react";
+import React, {useEffect, useState} from "react";
 
 import AdminIcon from "@/assets/icons/admin.svg";
 import { commonStyles } from "@/styles/commonStyles";
@@ -8,6 +8,7 @@ import NavigationBar from "@/components/NavigationBar";
 import { request_Login } from "../api/login";
 import {error} from "@expo/fingerprint/cli/build/utils/log";
 import {useRouter} from "expo-router";
+import { saveSession, getValidSession, clearToken } from "@/api/client";
 
 export default function AdminPage() {
   const router = useRouter();
@@ -16,11 +17,29 @@ export default function AdminPage() {
   const [password, setPassword] = useState("");
 
   // For post-login routing
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [userRole, setUserRole] = useState("");
 
   // Error message
   const [errorMessage, setErrorMessage] = useState("");
+
+  useEffect(() => {
+    async function checkExistingSession() {
+      try {
+        const session = await getValidSession();
+        if (session) {
+          setUserRole(session.role);
+          setIsLoggedIn(true);
+        }
+      } catch (e) {
+        console.error("Error reading session:", e);
+      } finally {
+        setIsCheckingAuth(false);
+      }
+    }
+    checkExistingSession();
+  }, []);
 
   const handleLogin = async () => {
     setErrorMessage("");
@@ -31,6 +50,8 @@ export default function AdminPage() {
       });
       console.log("Login successful:",response);
       // Record user role and login status
+      const token = response.token || response.access_token || response.key;
+      await saveSession(token, response.user_role);
       setUserRole(response.user_role);
       setIsLoggedIn(true);
     } catch (error: any) {
@@ -38,12 +59,18 @@ export default function AdminPage() {
     }
   };
 
-  const handleLogout = () => {
-    // Clear everything when the user wants to log out
-    setIsLoggedIn(false);
-    setUserRole("");
-    setUsername("");
-    setPassword("");
+  const handleLogout = async () => {
+    try {
+      await clearToken();
+    } catch (error) {
+      console.error("Failed to clear storage:", error);
+    } finally {
+      setIsLoggedIn(false);
+      setUserRole("");
+      setUsername("");
+      setPassword("");
+      setErrorMessage("");
+    }
   }
 
 
@@ -60,7 +87,7 @@ export default function AdminPage() {
             <View style={styles.iconWrapper}>
               <AdminIcon width={28} height={28} fill="#5cbdb9" />
             </View>
-            <Text style={styles.title}>System Access</Text>
+            <Text style={styles.title}>Admin Panel</Text>
             <Text style={styles.subtitle}>Please authenticate to continue</Text>
           </View>
           {!isLoggedIn ? (
@@ -118,9 +145,12 @@ export default function AdminPage() {
                     <Pressable style={styles.button} onPress={()=>router.push("/manage-dest")}>
                       <Text style={styles.buttonText}>Manage Destinations</Text>
                     </Pressable>
-                    <Pressable style={[styles.button, styles.logoutButton]}>
+                    <Pressable
+                      style={[styles.button, styles.logoutButton]}
+                      onPress={handleLogout}
+                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    >
                       <Text style={[styles.buttonText, styles.logoutText]}>Sign Out</Text>
-
                     </Pressable>
                   </View>
           )}

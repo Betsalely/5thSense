@@ -1,12 +1,16 @@
 import React, {useEffect, useState} from "react";
 import {View,Text, TextInput, Pressable, StyleSheet, ScrollView, ActivityIndicator, Alert} from "react-native";
 import {useFonts} from "expo-font";
+import { SafeAreaView } from "react-native-safe-area-context";
+import {useRouter} from "expo-router";
 import AdminIcon from "@/assets/icons/admin.svg";
 import {commonStyles} from "@/styles/commonStyles";
 import NavigationBar from "@/components/NavigationBar";
 import {request_GetUsers, request_CreateUser, request_UpdateUser, request_DeleteUser, UserData} from "@/api/api_users";
 
 export default function ManageUsersPage() {
+    const router = useRouter();
+
     // Initial settings
     const [users, setUsers] = useState<UserData[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -112,12 +116,30 @@ export default function ManageUsersPage() {
 
     };
 
+    const handleBackToAdmin = () => {
+        if (router.canGoBack()) {
+          router.back();
+        } else {
+          router.replace("/admin");
+        }
+      };
+
     if (!fontsLoaded) return null;
 
     // User interface
     return (
         <View style={commonStyles.screen}>
             <View style={styles.container}>
+                <View style={styles.backButtonContainer}>
+                  <Pressable
+                    style={styles.backToAdminBtn}
+                    onPress={handleBackToAdmin}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  >
+                    <Text style={styles.backToAdminText}>← Back to Admin Panel</Text>
+                  </Pressable>
+                </View>
+
                 {isFormVisible ? (
                     <View style={styles.card}>
                        <View style={styles.header}>
@@ -256,6 +278,7 @@ export default function ManageUsersPage() {
 
             <NavigationBar />
         </View>
+
     );
 
 
@@ -284,6 +307,23 @@ const styles = StyleSheet.create({
         shadowRadius: 24,
         elevation: 8,
     },
+    backButtonContainer: {
+        width: "100%",
+        maxWidth: 380,
+        marginBottom: 12,
+      },
+    backToAdminBtn: {
+        alignSelf: "flex-start",
+        paddingVertical: 6,
+        paddingHorizontal: 4,
+    },
+    backToAdminText: {
+        fontSize: 14,
+        color: "#5cbdb9",
+        fontWeight: "700",
+        fontFamily: "Inter-Regular",
+    },
+
     header: {
         alignItems: "center",
         marginBottom: 24,
