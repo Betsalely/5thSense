@@ -6,9 +6,6 @@ import {
   Animated,
   Easing,
   StyleSheet,
-  PanResponder,
-  GestureResponderEvent,
-  PanResponderGestureState,
 } from "react-native";
 import { Magnetometer } from 'expo-sensors';
 
@@ -17,26 +14,18 @@ import { indexStyles } from "@/styles/indexStyles";
 import { vibrate, type VibrationStrength } from '@/vibration/haptics';
 import NavigationBar from '@/components/NavigationBar';
 import { request_MapsIdPath } from '@/api/api_maps_id_path';
-import { router, useLocalSearchParams, Redirect } from "expo-router";
+import { useLocalSearchParams, Redirect } from "expo-router";
 
 const waitMs = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const grid_W = 8;
 const grid_H = 8;
-const arrvlThresh = 0.5;
 const heading_ConeDeg = 15;
 const miniMap_sz = 150;
 
 const startPt = { x: 0, y: 0 };
 const end_PT = { x: 7, y: 7 };
 
-const joyBaseSz = 132;
-const joyKnob_sz = 56;
-const joyMaxRadius = (joyBaseSz - joyKnob_sz) / 2;
-const moveSpeedCells = 2.2;
-const moveTick_ms = 50;
-
-const isJoyVisible = true;
 const headingSmoothAlpha = 0.18;
 const grid_PanPad = 8;
 
@@ -77,10 +66,6 @@ export default function MapPage() {
 
   const [safe_path, setSafePath] = useState<[number, number][]>([]);
 
-  const joyKnobPan = useRef(new Animated.ValueXY()).current;
-  const joyVecRef = useRef({ x: 0, y: 0 });
-  const moveInterval_Ref = useRef<ReturnType<typeof setInterval> | null>(null);
-
   const gridPathD = useMemo(() => {
     const minVal = -grid_PanPad;
     const max_X = grid_W + grid_PanPad;
@@ -114,7 +99,7 @@ export default function MapPage() {
 
   const pulse_Radius = rdarPulse.interpolate({ inputRange: [0, 1], outputRange: [0.4, 3.2] });
   const pulse_Opacity = rdarPulse.interpolate({ inputRange: [0, 1], outputRange: [0.6, 0] });
-
+  
   if (!mapId || !destinationId) {
     return <Redirect href={"/destination"} />;
   }
@@ -185,97 +170,6 @@ export default function MapPage() {
       );
     }
   }, [safe_path]);
-
-  const stopMoveLoop = useCallback(() => {
-    if (moveInterval_Ref.current) {
-      clearInterval(moveInterval_Ref.current);
-      moveInterval_Ref.current = null;
-    }
-  }, []);
-
-  const runMoveLoop = useCallback(() => {
-    if (moveInterval_Ref.current) return;
-
-    moveInterval_Ref.current = setInterval(() => {
-      const { x: vecX, y: vecY } = joyVecRef.current;
-      if (vecX === 0 && vecY === 0) return;
-
-      const dtSecs = moveTick_ms / 1000;
-
-      const radAngle = currHeadingRef.current * (Math.PI / 180);
-      const rot_Vx = vecX * Math.cos(radAngle) - vecY * Math.sin(radAngle);
-      const rot_Vy = vecX * Math.sin(radAngle) + vecY * Math.cos(radAngle);
-
-      const nxt_X = virtPos.current.x + rot_Vx * moveSpeedCells * dtSecs;
-      const nxt_Y = virtPos.current.y + rot_Vy * moveSpeedCells * dtSecs;
-
-      virtPos.current = { x: nxt_X, y: nxt_Y };
-
-      camPanVal.setValue({ x: nxt_X, y: nxt_Y });
-
-      const curPath = safePath_Ref.current;
-      const cIdx = tgtIdxRef.current;
-      if (curPath.length > 0 && cIdx < curPath.length) {
-        const curTarget = curPath[cIdx];
-        if (curTarget && curTarget.length >= 2) {
-          const distToTgt = Math.hypot(curTarget[0] - nxt_X, curTarget[1] - nxt_Y);
-
-          if (distToTgt < arrvlThresh && cIdx < curPath.length - 1) {
-            tgtIdxRef.current = cIdx + 1;
-          }
-        }
-      }
-    }, moveTick_ms);
-  }, [camPanVal]);
-
-  const resetJoyStick = useCallback(() => {
-    joyVecRef.current = { x: 0, y: 0 };
-    stopMoveLoop();
-    Animated.spring(joyKnobPan, {
-      toValue: { x: 0, y: 0 },
-      useNativeDriver: true,
-      friction: 5,
-    }).start();
-  }, [joyKnobPan, stopMoveLoop]);
-
-  const onJoyMove = useCallback(
-    (_evt: GestureResponderEvent, gState: PanResponderGestureState) => {
-      const { dx, dy } = gState;
-      const totalDist = Math.hypot(dx, dy);
-      const clampedDist = Math.min(totalDist, joyMaxRadius);
-      const moveAngle = Math.atan2(dy, dx);
-
-      const kX = Math.cos(moveAngle) * clampedDist;
-      const kY = Math.sin(moveAngle) * clampedDist;
-
-      joyKnobPan.setValue({ x: kX, y: kY });
-
-      joyVecRef.current = {
-        x: kX / joyMaxRadius,
-        y: kY / joyMaxRadius,
-      };
-    },
-    [joyKnobPan],
-  );
-
-  const joyPanResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: () => true,
-      onPanResponderGrant: () => {
-        runMoveLoop();
-      },
-      onPanResponderMove: onJoyMove,
-      onPanResponderRelease: resetJoyStick,
-      onPanResponderTerminate: resetJoyStick,
-    }),
-  ).current;
-
-  useEffect(() => {
-    return () => {
-      stopMoveLoop();
-    };
-  }, [stopMoveLoop]);
 
   useEffect(() => {
     let sensorSub: { remove: () => void } | null = null;
@@ -519,19 +413,6 @@ export default function MapPage() {
               />
             </Svg>
           </Animated.View>
-
-          <View
-            style={[localStyles.joystickBase, !isJoyVisible && localStyles.joystickHidden]}
-            {...joyPanResponder.panHandlers}
-          >
-            <Animated.View
-              style={[
-                localStyles.joystickKnob,
-                !isJoyVisible && localStyles.joystickHidden,
-                { transform: joyKnobPan.getTranslateTransform() },
-              ]}
-            />
-          </View>
         </View>
       </View>
 
@@ -564,31 +445,5 @@ const localStyles = StyleSheet.create({
   centerStack: {
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  joystickBase: {
-    marginTop: 28,
-    width: joyBaseSz,
-    height: joyBaseSz,
-    borderRadius: joyBaseSz / 2,
-    backgroundColor: 'rgba(92, 189, 185, 0.12)',
-    borderWidth: 1.5,
-    borderColor: 'rgba(92, 189, 185, 0.35)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  joystickKnob: {
-    width: joyKnob_sz,
-    height: joyKnob_sz,
-    borderRadius: joyKnob_sz / 2,
-    backgroundColor: '#5cbdb9',
-    shadowColor: "#2C3E50",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-
-  joystickHidden: {
-    opacity: 0,
   },
 });
